@@ -14,29 +14,53 @@ file_read_complete (GObject *file, GAsyncResult *res, gpointer user_data) {
 	gsize length;
 
 	if (g_file_load_contents_finish (G_FILE (file), res, &contents, &length, NULL, &error)) { // etag
-		gchar **lines = g_strsplit (contents, "\n", -1);
+		gchar **lines = g_strsplit (contents, "\n", 0);
 		GTimeZone *tz = g_time_zone_new_local ();
+		gchar *empty = "";
 
 		for (guint i = g_strv_length (lines) ; i > 1; i--) {
+			gchar *t = NULL, *h = NULL, *m = NULL;
+
+			if (! strlen (lines[i - 2])) {
+				g_print ("\t\t\n");
+				continue;
+			}
 			gchar **f = g_strsplit (lines[i - 2], "\t", 3);
+			g_print ("%d\n", g_strv_length (f));
+			if (! strlen (f[0]))
+				t = empty;
+			else {
+				GDateTime *dt = g_date_time_new_from_iso8601 (f[0], NULL);
 
-			GDateTime *dt = g_date_time_new_from_iso8601 (f[0], NULL);
-			GDateTime *nw = g_date_time_to_timezone (dt, tz);
-			gchar *t = g_date_time_format_iso8601 (nw);
+				if (dt) {
+					GDateTime *nw = g_date_time_to_timezone (dt, tz);
 
-			g_print ("%s\t", t);
-			g_print ("%s\t", f[1]);
-			g_print ("%s\n", f[2]);
+					t = g_date_time_format_iso8601 (nw);
+
+					g_date_time_unref(dt);
+					g_date_time_unref(nw);
+				} else
+					t = empty;
+			}
+			if (f[1] != NULL)
+				h = f[1];
+			else
+				h = empty;
+			if (f[2] != NULL)
+				m = f[2];
+			else
+				m = empty;
+
+			g_print ("%s\t%s\t%s\n", t, h, m);
 
 			g_strfreev (f);
-			g_date_time_unref(dt);
-			g_date_time_unref(nw);
-			g_free (t);
+			if (t != empty && t != NULL)
+				g_free (t);
 		}
 
 		g_strfreev (lines);
-		g_time_zone_unref(tz);
 		g_free (contents);
+		g_time_zone_unref(tz);
 	} else {
 		g_printerr ("Error reading file: %s\n", error->message);
 		g_error_free (error);
