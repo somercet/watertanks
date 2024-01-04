@@ -3,88 +3,55 @@ gcc -g -Wall $(pkgconf --cflags gio-2.0) -o atac atac.c $(pkgconf --libs gio-2.0
 */
 
 #include <glib.h>
-#include <glib-object.h>
 #include <gio/gio.h>
 
-typedef struct {
-    gchar **lines;
-    gint num_lines;
-} FileData;
+GMainLoop *Loop;
 
+static void
+file_read_complete (GObject *file, GAsyncResult *res, gpointer user_data) {
+	GError *error = NULL;
+	char *contents;
+	gsize length;
 
-static void file_read_complete(GObject *source_object, GAsyncResult *res, gpointer user_data) {
-    GError *error = NULL;
-    FileData *file_data = (FileData *)user_data;
+	if (g_file_load_contents_finish (G_FILE (file), res, &contents, &length, NULL, &error)) { // etag
+		gchar **lines = g_strsplit (contents, "\n", -1);
 
-    gssize bytes_read = g_input_stream_read_finish(G_INPUT_STREAM(source_object), res, &error);
+		for (guint i = g_strv_length (lines) ; i > 1; i--)
+			g_print ("%s\n", lines[i - 2]);
 
-    if (bytes_read > 0) {
-        // Check if file_data->lines is non-NULL before accessing its elements
-        if (file_data->lines != NULL) {
-            file_data->lines = g_strsplit(file_data->lines[0], "\n", -1);
-            file_data->num_lines = g_strv_length(file_data->lines);
+		g_strfreev (lines);
+		g_free (contents);
+	} else {
+		g_printerr ("Error reading file: %s\n", error->message);
+		g_error_free (error);
+	}
 
-            for (gint i = file_data->num_lines - 1; i >= 0; i--) {
-                if (file_data->lines[i] != NULL && file_data->lines[i][0] != '\0') {
-                    g_print("%s\n", file_data->lines[i]);
-                }
-            }
-
-            g_strfreev(file_data->lines);
-            g_free(file_data);
-        }
-    } else if (bytes_read == 0) {
-        // End of file
-        g_strfreev(file_data->lines);
-        g_free(file_data);
-    } else {
-        g_printerr("Error reading file: %s\n", error->message);
-        g_error_free(error);
-
-        // Ensure to free memory even in case of an error
-        g_strfreev(file_data->lines);
-        g_free(file_data);
-    }
-
-    g_main_loop_quit(g_main_loop_new(NULL, FALSE));
+	g_object_unref (file);
+	g_main_loop_quit (Loop);
+	g_main_loop_unref (Loop);
 }
 
 
-static void async_file_read(const gchar *filename) {
-    GFileInputStream *input_stream;
-    GFile *file = g_file_new_for_path(filename);
+static void
+async_file_read (const gchar *filename) {
+	GFile *file = g_file_new_for_path (filename);
 
-    input_stream = g_file_read(file, NULL, NULL);
+	g_file_load_contents_async (file, NULL, file_read_complete, NULL); // cancellable, user data
 
-    FileData *file_data = g_new(FileData, 1);
-    file_data->lines = NULL;
-    file_data->num_lines = 0;
-
-    g_input_stream_read_async(
-        G_INPUT_STREAM(input_stream),
-        g_malloc0(4096),  // Buffer size (adjust as needed)
-        4096,             // Buffer size (adjust as needed)
-        G_PRIORITY_DEFAULT,
-        NULL,
-        file_read_complete,
-        file_data);
-
-    g_object_unref(file);
-    g_object_unref(input_stream);
-
-    g_main_loop_run(g_main_loop_new(NULL, FALSE));
+	Loop = g_main_loop_new (NULL, FALSE);
+	g_main_loop_run (Loop);
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 2) {
-        g_printerr("Usage: %s <filename>\n", argv[0]);
-        return 1;
-    }
+	if (argc < 2) {
+		g_printerr ("Usage: %s <filename>\n", argv[0]);
+		return 1;
+	}
 
-    const gchar *filename = argv[1];
-    async_file_read(filename);
+	const gchar *filename = argv[1];
+	async_file_read (filename);
 
-    return 0;
+	return 0;
 }
 
 
