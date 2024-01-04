@@ -8,26 +8,17 @@
 
 static void
 create_menu_item (GMenu *menu,
-		const gchar *const label,
-		const gchar *const action,
-		const gchar *const icon,
-		const gchar *const accel) {
+		const gchar *const label, const gchar *const action,
+		const gchar *const icon,  const gchar *const accel) {
 	GMenuItem *item = g_menu_item_new (label, action);
 
 	if (icon)
 		g_menu_item_set_attribute (item, G_MENU_ATTRIBUTE_ICON, "s", icon, NULL);
 	if (accel)
 		g_menu_item_set_attribute (item, "accel", "s", accel, NULL);
-	if (action)
-		g_menu_item_set_detailed_action (item, action);
 
 	g_menu_append_item (menu, item);
 	g_object_unref (item);
-}
-
-static void
-example_destroy (GtkWidget *win, gpointer app) {
-	g_application_quit(G_APPLICATION(app));
 }
 
 static void
@@ -35,6 +26,11 @@ cb_quit (GSimpleAction *simple,
 	GVariant *parameter,
 	gpointer app)
 {
+	g_application_quit(G_APPLICATION(app));
+}
+
+static void
+example_destroy (GtkWidget *win, gpointer app) {
 	g_application_quit(G_APPLICATION(app));
 }
 
