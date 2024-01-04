@@ -15,11 +15,27 @@ file_read_complete (GObject *file, GAsyncResult *res, gpointer user_data) {
 
 	if (g_file_load_contents_finish (G_FILE (file), res, &contents, &length, NULL, &error)) { // etag
 		gchar **lines = g_strsplit (contents, "\n", -1);
+		GTimeZone *tz = g_time_zone_new_local ();
 
-		for (guint i = g_strv_length (lines) ; i > 1; i--)
-			g_print ("%s\n", lines[i - 2]);
+		for (guint i = g_strv_length (lines) ; i > 1; i--) {
+			gchar **f = g_strsplit (lines[i - 2], "\t", 3);
+
+			GDateTime *dt = g_date_time_new_from_iso8601 (f[0], NULL);
+			GDateTime *nw = g_date_time_to_timezone (dt, tz);
+			gchar *t = g_date_time_format_iso8601 (nw);
+
+			g_print ("%s\t", t);
+			g_print ("%s\t", f[1]);
+			g_print ("%s\n", f[2]);
+
+			g_strfreev (f);
+			g_date_time_unref(dt);
+			g_date_time_unref(nw);
+			g_free (t);
+		}
 
 		g_strfreev (lines);
+		g_time_zone_unref(tz);
 		g_free (contents);
 	} else {
 		g_printerr ("Error reading file: %s\n", error->message);
