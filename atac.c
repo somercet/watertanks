@@ -19,17 +19,20 @@ static void file_read_complete(GObject *source_object, GAsyncResult *res, gpoint
     gssize bytes_read = g_input_stream_read_finish(G_INPUT_STREAM(source_object), res, &error);
 
     if (bytes_read > 0) {
-        file_data->lines = g_strsplit(file_data->lines[0], "\n", -1);
-        file_data->num_lines = g_strv_length(file_data->lines);
+        // Check if file_data->lines is non-NULL before accessing its elements
+        if (file_data->lines != NULL) {
+            file_data->lines = g_strsplit(file_data->lines[0], "\n", -1);
+            file_data->num_lines = g_strv_length(file_data->lines);
 
-        for (gint i = file_data->num_lines - 1; i >= 0; i--) {
-            if (file_data->lines[i] != NULL && file_data->lines[i][0] != '\0') {
-                g_print("%s\n", file_data->lines[i]);
+            for (gint i = file_data->num_lines - 1; i >= 0; i--) {
+                if (file_data->lines[i] != NULL && file_data->lines[i][0] != '\0') {
+                    g_print("%s\n", file_data->lines[i]);
+                }
             }
-        }
 
-        g_strfreev(file_data->lines);
-        g_free(file_data);
+            g_strfreev(file_data->lines);
+            g_free(file_data);
+        }
     } else if (bytes_read == 0) {
         // End of file
         g_strfreev(file_data->lines);
@@ -37,6 +40,8 @@ static void file_read_complete(GObject *source_object, GAsyncResult *res, gpoint
     } else {
         g_printerr("Error reading file: %s\n", error->message);
         g_error_free(error);
+
+        // Ensure to free memory even in case of an error
         g_strfreev(file_data->lines);
         g_free(file_data);
     }
