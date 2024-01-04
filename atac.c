@@ -16,7 +16,7 @@ static void file_read_complete(GObject *source_object, GAsyncResult *res, gpoint
     GError *error = NULL;
     FileData *file_data = (FileData *)user_data;
 
-    gssize bytes_read = g_file_read_finish(G_FILE(source_object), res, &error);
+    gssize bytes_read = g_input_stream_read_finish(G_INPUT_STREAM(source_object), res, &error);
 
     if (bytes_read > 0) {
         file_data->lines = g_strsplit(file_data->lines[0], "\n", -1);
@@ -30,9 +30,15 @@ static void file_read_complete(GObject *source_object, GAsyncResult *res, gpoint
 
         g_strfreev(file_data->lines);
         g_free(file_data);
+    } else if (bytes_read == 0) {
+        // End of file
+        g_strfreev(file_data->lines);
+        g_free(file_data);
     } else {
         g_printerr("Error reading file: %s\n", error->message);
         g_error_free(error);
+        g_strfreev(file_data->lines);
+        g_free(file_data);
     }
 
     g_main_loop_quit(g_main_loop_new(NULL, FALSE));
@@ -40,8 +46,10 @@ static void file_read_complete(GObject *source_object, GAsyncResult *res, gpoint
 
 
 static void async_file_read(const gchar *filename) {
+    GFileInputStream *input_stream;
     GFile *file = g_file_new_for_path(filename);
-    GFileInputStream *input_stream = g_file_read(file, NULL, NULL);
+
+    input_stream = g_file_read(file, NULL, NULL);
 
     FileData *file_data = g_new(FileData, 1);
     file_data->lines = NULL;
@@ -56,11 +64,10 @@ static void async_file_read(const gchar *filename) {
         file_read_complete,
         file_data);
 
+    g_object_unref(file);
     g_object_unref(input_stream);
 
     g_main_loop_run(g_main_loop_new(NULL, FALSE));
-
-    g_object_unref(file);
 }
 
 int main(int argc, char *argv[]) {
