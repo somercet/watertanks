@@ -19,17 +19,14 @@ file_read_complete (GObject *file, GAsyncResult *res, gpointer user_data) {
 		gchar *empty = "";
 
 		for (guint i = g_strv_length (lines) ; i > 1; i--) {
-			gchar *t = NULL, *h = NULL, *m = NULL;
+			gchar *t = NULL;
+			gchar **f = g_strsplit (lines[i - 1], "\t", 3);
 
-			if (! strlen (lines[i - 2])) {
+			if (f == NULL || g_strv_length (f) < 3) {
 				g_print ("\t\t\n");
+				g_strfreev (f);
 				continue;
-			}
-			gchar **f = g_strsplit (lines[i - 2], "\t", 3);
-			g_print ("%d\n", g_strv_length (f));
-			if (! strlen (f[0]))
-				t = empty;
-			else {
+			} else {
 				GDateTime *dt = g_date_time_new_from_iso8601 (f[0], NULL);
 
 				if (dt) {
@@ -42,18 +39,11 @@ file_read_complete (GObject *file, GAsyncResult *res, gpointer user_data) {
 				} else
 					t = empty;
 			}
-			if (f[1] != NULL)
-				h = f[1];
-			else
-				h = empty;
-			if (f[2] != NULL)
-				m = f[2];
-			else
-				m = empty;
 
-			g_print ("%s\t%s\t%s\n", t, h, m);
+			g_print ("%s\t%s\t%s\n", t, f[1], f[2]);
 
-			g_strfreev (f);
+			if (f)
+				g_strfreev (f);
 			if (t != empty && t != NULL)
 				g_free (t);
 		}
@@ -75,10 +65,9 @@ file_read_complete (GObject *file, GAsyncResult *res, gpointer user_data) {
 static void
 async_file_read (const gchar *filename) {
 	GFile *file = g_file_new_for_path (filename);
+	Loop = g_main_loop_new (NULL, FALSE);
 
 	g_file_load_contents_async (file, NULL, file_read_complete, NULL); // cancellable, user data
-
-	Loop = g_main_loop_new (NULL, FALSE);
 	g_main_loop_run (Loop);
 }
 

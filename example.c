@@ -16,22 +16,30 @@ create_menu_item (GMenu *menu,
 		g_menu_item_set_attribute (item, G_MENU_ATTRIBUTE_ICON, "s", icon, NULL);
 	if (accel)
 		g_menu_item_set_attribute (item, "accel", "s", accel, NULL);
+//	if (target)
+//		g_menu_item_set_attribute (item, G_MENU_ATTRIBUTE_TARGET, "s", target, NULL);
 
 	g_menu_append_item (menu, item);
 	g_object_unref (item);
 }
 
+//state part 10
+//static void cb_state (GSimpleAction *action,
+//	GVariant *state,
+//	gpointer app) {
+//	g_simple_action_set_state (action, state);
+//}
+
 static void
 cb_quit (GSimpleAction *simple,
 	GVariant *parameter,
-	gpointer app)
-{
-	g_application_quit(G_APPLICATION(app));
+	gpointer app) {
+	g_application_quit (G_APPLICATION (app));
 }
 
 static void
 example_destroy (GtkWidget *win, gpointer app) {
-	g_application_quit(G_APPLICATION(app));
+	g_application_quit (G_APPLICATION (app));
 }
 
 static void
