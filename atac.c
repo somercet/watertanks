@@ -5,10 +5,9 @@ gcc -g -Wall $(pkgconf --cflags gio-2.0) -o atac atac.c $(pkgconf --libs gio-2.0
 #include <glib.h>
 #include <gio/gio.h>
 
-GMainLoop *Loop;
 
 static void
-file_read_complete (GObject *file, GAsyncResult *res, gpointer user_data) {
+file_read_complete (GObject *file, GAsyncResult *res, gpointer loop) {
 	GError *error = NULL;
 	char *contents;
 	gsize length;
@@ -57,28 +56,30 @@ file_read_complete (GObject *file, GAsyncResult *res, gpointer user_data) {
 	}
 
 	g_object_unref (file);
-	g_main_loop_quit (Loop);
-	g_main_loop_unref (Loop);
+	g_main_loop_quit (loop);
 }
 
 
 static void
-async_file_read (const gchar *filename) {
+async_file_read (const gchar *filename, GMainLoop *loop) {
 	GFile *file = g_file_new_for_path (filename);
-	Loop = g_main_loop_new (NULL, FALSE);
+	loop = g_main_loop_new (NULL, FALSE);
 
-	g_file_load_contents_async (file, NULL, file_read_complete, NULL); // cancellable, user data
-	g_main_loop_run (Loop);
+	g_file_load_contents_async (file, NULL, file_read_complete, loop); // cancellable
+	g_main_loop_run (loop);
 }
 
 int main(int argc, char *argv[]) {
+	GMainLoop *loop = g_main_loop_new (NULL, FALSE);
+
 	if (argc < 2) {
 		g_printerr ("Usage: %s <filename>\n", argv[0]);
 		return 1;
 	}
 
 	const gchar *filename = argv[1];
-	async_file_read (filename);
+	async_file_read (filename, loop);
+	g_main_loop_unref (loop);
 
 	return 0;
 }
