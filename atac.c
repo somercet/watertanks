@@ -7,17 +7,35 @@ gcc -g -Wall $(pkgconf --cflags gio-2.0) -o atac atac.c $(pkgconf --libs gio-2.0
 
 
 static void
-file_read_complete (GObject *file, GAsyncResult *res, gpointer loop) {
+load_scrollback_finish (GObject *sobj, GAsyncResult *res, gpointer loop) {
+	GTask *task = G_TASK(res);
+	GError *error = NULL;
+
+	if (! g_task_propagate_boolean (task, &error)) {
+		g_printerr ("Error reading file: %s\n", error->message);
+		g_error_free (error);
+	}
+
+	g_object_unref(task);
+	g_main_loop_quit (loop);
+}
+
+
+static void
+load_scrollback_run (GTask *task, gpointer sobj, gpointer loop, GCancellable *cancellable) {
+	GFile *file = G_FILE (sobj);
 	GError *error = NULL;
 	char *contents;
 	gsize length;
+	gboolean ret;
 
-	if (g_file_load_contents_finish (G_FILE (file), res, &contents, &length, NULL, &error)) { // etag
+	if (g_file_load_contents (file, NULL, &contents, &length, NULL, &error)) // cancellable, etag
+	{
 		gchar **lines = g_strsplit (contents, "\n", 0);
 		GTimeZone *tz = g_time_zone_new_local ();
 		gchar *empty = "";
 
-		for (guint i = g_strv_length (lines) ; i > 1; i--) {
+		for (guint i = g_strv_length (lines) ; i > 0; i--) {
 			gchar *t = NULL;
 			gchar **f = g_strsplit (lines[i - 1], "\t", 3);
 
@@ -50,24 +68,27 @@ file_read_complete (GObject *file, GAsyncResult *res, gpointer loop) {
 		g_strfreev (lines);
 		g_free (contents);
 		g_time_zone_unref(tz);
+		ret = TRUE;
 	} else {
 		g_printerr ("Error reading file: %s\n", error->message);
 		g_error_free (error);
+		ret = FALSE;
 	}
 
+	g_task_return_boolean (task, ret);
 	g_object_unref (file);
-	g_main_loop_quit (loop);
 }
 
 
 static void
-async_file_read (const gchar *filename, GMainLoop *loop) {
+load_scrollback_start (const gchar *filename, GMainLoop *loop) {
 	GFile *file = g_file_new_for_path (filename);
-	loop = g_main_loop_new (NULL, FALSE);
+	GTask *task = g_task_new (file, NULL, load_scrollback_finish, loop); // cancellable
 
-	g_file_load_contents_async (file, NULL, file_read_complete, loop); // cancellable
+	g_task_run_in_thread (task, load_scrollback_run);
 	g_main_loop_run (loop);
 }
+
 
 int main(int argc, char *argv[]) {
 	GMainLoop *loop = g_main_loop_new (NULL, FALSE);
@@ -78,7 +99,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	const gchar *filename = argv[1];
-	async_file_read (filename, loop);
+	load_scrollback_start (filename, loop);
 	g_main_loop_unref (loop);
 
 	return 0;
