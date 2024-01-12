@@ -8,15 +8,15 @@ gcc -g -Wall $(pkgconf --cflags gio-2.0) -o atac atac.c $(pkgconf --libs gio-2.0
 
 static void
 load_scrollback_finish (GObject *sobj, GAsyncResult *res, gpointer loop) {
-	GTask *task = G_TASK(res);
+	GTask *task = G_TASK (res);
 	GError *error = NULL;
 
 	if (! g_task_propagate_boolean (task, &error)) {
-		g_printerr ("Error reading file: %s\n", error->message);
+		g_printerr ("%s\n", error->message);
 		g_error_free (error);
 	}
 
-	g_object_unref(task);
+	g_object_unref (task);
 	g_main_loop_quit (loop);
 }
 
@@ -27,7 +27,6 @@ load_scrollback_run (GTask *task, gpointer sobj, gpointer loop, GCancellable *ca
 	GError *error = NULL;
 	char *contents;
 	gsize length;
-	gboolean ret;
 
 	if (g_file_load_contents (file, NULL, &contents, &length, NULL, &error)) // cancellable, etag
 	{
@@ -51,8 +50,8 @@ load_scrollback_run (GTask *task, gpointer sobj, gpointer loop, GCancellable *ca
 
 					t = g_date_time_format_iso8601 (nw);
 
-					g_date_time_unref(dt);
-					g_date_time_unref(nw);
+					g_date_time_unref (dt);
+					g_date_time_unref (nw);
 				} else
 					t = empty;
 			}
@@ -67,15 +66,12 @@ load_scrollback_run (GTask *task, gpointer sobj, gpointer loop, GCancellable *ca
 
 		g_strfreev (lines);
 		g_free (contents);
-		g_time_zone_unref(tz);
-		ret = TRUE;
+		g_time_zone_unref (tz);
+		g_task_return_boolean (task, TRUE);
 	} else {
-		g_printerr ("Error reading file: %s\n", error->message);
-		g_error_free (error);
-		ret = FALSE;
+		g_task_return_error (task, error);
 	}
 
-	g_task_return_boolean (task, ret);
 	g_object_unref (file);
 }
 
@@ -90,7 +86,8 @@ load_scrollback_start (const gchar *filename, GMainLoop *loop) {
 }
 
 
-int main(int argc, char *argv[]) {
+int
+main (int argc, char *argv[]) {
 	GMainLoop *loop = g_main_loop_new (NULL, FALSE);
 
 	if (argc < 2) {

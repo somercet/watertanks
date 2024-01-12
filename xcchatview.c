@@ -1,4 +1,4 @@
-/* Copyright 2023 somercet
+/* Copyright 2023-2024 somercet
  * Released under GPL2.
  * Author: google mail com at somercet */
 

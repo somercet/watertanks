@@ -1,7 +1,7 @@
 /* HexChat
  * Copyright (C) 1998-2010 Peter Zelezny.
  * Copyright (C) 2009-2013 Berke Viktor.
- * Copyright (c) 2023 somercet
+ * Copyright (c) 2023-2024 somercet
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
