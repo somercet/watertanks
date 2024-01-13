@@ -79,7 +79,7 @@ example_activated (GtkApplication *app, gpointer user_data) {
 
 	GMenu *mmenu = g_menu_new ();
 	GMenu *smenu = g_menu_new ();
-	g_menu_append_submenu (mmenu, "App", G_MENU_MODEL (smenu));
+	g_menu_append_submenu (mmenu, "_Hexchat", G_MENU_MODEL (smenu));
 	gtk_application_set_menubar (app, G_MENU_MODEL (mmenu));
 	g_object_unref (mmenu);
 	g_object_unref (smenu);
@@ -107,8 +107,8 @@ example_activated (GtkApplication *app, gpointer user_data) {
 	create_tabs (xccv2, stack, "Two");
 
 	gtk_widget_show_all (win);
-
 /*
+	xc_chat_view_set_scrollback_file (xccv1, "rrr");
 	xc_chat_view_set_scrollback_file (xccv1, "foo/rrr");
 */
 	xc_chat_view_set_scrollback_file (xccv1, "text1");

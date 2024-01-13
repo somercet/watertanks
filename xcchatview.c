@@ -116,8 +116,11 @@ cell_func_dtime (	GtkTreeViewColumn	*tree_column,
   gchar *result;
 
   gtk_tree_model_get (tree_model, iter, SFS_GDTIME, &dtime, -1);
-  if (dtime == NULL)
+  if (! dtime)
+  {
+    g_object_set (cell, "markup", "", NULL);
     return;
+  }
 
   result = g_date_time_format (dtime, dtformat);
   g_object_set (cell, "markup", result, NULL);
@@ -370,19 +373,17 @@ load_scrollback_run (GTask *task, gpointer sobj, gpointer ud_file, GCancellable 
 	char *contents;
 	gsize length;
 
-	if (ud_file == NULL)
-		g_printerr ("oops\n");
 	if (g_file_load_contents (file, NULL, &contents, &length, NULL, &error)) // cancellable, etag
 	{
 		gchar **lines = g_strsplit (contents, "\n", 0);
 		GTimeZone *tz = g_time_zone_new_local ();
 
-		for (guint i = g_strv_length (lines) ; i > 0; i--) {
+		for (guint i = g_strv_length (lines); i > 0; i--) {
 			GDateTime *t = NULL;
 			gchar **f = g_strsplit (lines[i - 1], "\t", 3);
 
 			if (f == NULL || g_strv_length (f) < 3) {
-				xc_chat_view_append0 (xccv, NULL, "", "");
+				xc_chat_view_prepend0 (xccv, NULL, "", "");
 				g_strfreev (f);
 				continue;
 			} else {
@@ -394,7 +395,7 @@ load_scrollback_run (GTask *task, gpointer sobj, gpointer ud_file, GCancellable 
 				}
 			}
 
-			xc_chat_view_append0 (xccv, t, f[1], f[2]);
+			xc_chat_view_prepend0 (xccv, t, f[1], f[2]);
 
 			if (f)
 				g_strfreev (f);
@@ -422,7 +423,7 @@ xc_chat_view_set_scrollback_file (XcChatView *xccv, gchar *filename)
 
   GFile *file = g_file_new_for_path (filename);
   GFileOutputStream *stream = g_file_create (file, G_FILE_CREATE_NONE, NULL, &error);
-  if (error == NULL)
+  if (! error)
   {
     g_object_unref (stream);
     begin = TRUE;
@@ -450,6 +451,18 @@ xc_chat_view_set_scrollback_file (XcChatView *xccv, gchar *filename)
 
 
 void
+xc_chat_view_prepend0 (	XcChatView	*xccv,
+			GDateTime	*dtime,
+			gchar		*handle,
+			gchar		*message ) {
+  gtk_list_store_insert_with_values (xccv->store, NULL, 0,
+    SFS_HANDLE, handle,
+    SFS_MESSAG, message,
+    SFS_GDTIME, dtime,
+    -1);
+}
+
+void
 xc_chat_view_append0 (	XcChatView	*xccv,
 			GDateTime	*dtime,
 			gchar		*handle,
@@ -457,10 +470,11 @@ xc_chat_view_append0 (	XcChatView	*xccv,
   GtkTreeIter	iter;
 
   gtk_list_store_append (xccv->store, &iter);
+
   gtk_list_store_set (xccv->store, &iter,
-    SFS_GDTIME, dtime,
     SFS_HANDLE, handle,
     SFS_MESSAG, message,
+    SFS_GDTIME, dtime,
     -1);
 }
 

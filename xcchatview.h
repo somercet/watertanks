@@ -182,6 +182,11 @@ void xc_chat_view_save (	XcChatView	*xccv,
 void xc_chat_view_set_scrollback_file (	XcChatView *xccv,
 					gchar *filename);
 
+void		xc_chat_view_prepend0 (	XcChatView	*xccv,
+					GDateTime	*dtime,
+					gchar		*handle,
+					gchar		*message );
+
 void		xc_chat_view_append0 (	XcChatView	*xccv,
 					GDateTime	*dtime,
 					gchar		*handle,
