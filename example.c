@@ -107,6 +107,12 @@ example_activated (GtkApplication *app, gpointer user_data) {
 	create_tabs (xccv2, stack, "Two");
 
 	gtk_widget_show_all (win);
+
+/*
+	xc_chat_view_set_scrollback_file (xccv1, "foo/rrr");
+*/
+	xc_chat_view_set_scrollback_file (xccv1, "text1");
+	xc_chat_view_set_scrollback_file (xccv2, "text2");
 }
 
 

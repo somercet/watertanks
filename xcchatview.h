@@ -67,6 +67,7 @@ struct _XcChatView
   GtkCellRenderer	*cell_td, *cell_hn, *cell_ms;
 
   gchar		*dtformat;
+  gchar		*scrollback_filename;
   guint		max_lines;
   marker_reset_reason	marker_state;
   /* Private */
@@ -175,6 +176,16 @@ void xc_chat_view_save (	XcChatView	*xccv,
 //int gtk_xtext_lastlog (xtext_buffer *out, xtext_buffer *search_area);
 // int xc_chat_view_lastlog (xtext_buffer *out, xtext_buffer *search_area);
 // gtk_xtext_is_empty() might be useful to turn off lastlog
+
+
+
+void xc_chat_view_set_scrollback_file (	XcChatView *xccv,
+					gchar *filename);
+
+void		xc_chat_view_append0 (	XcChatView	*xccv,
+					GDateTime	*dtime,
+					gchar		*handle,
+					gchar		*message );
 
 
 

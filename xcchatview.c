@@ -95,6 +95,8 @@ xc_chat_view_dispose (GObject *object)
   if (xccv->cell_ms)
     g_object_unref (xccv->cell_ms);
 
+  if (xccv->scrollback_filename)
+    g_free (xccv->scrollback_filename);
   if (xccv->dtformat)
     g_free (xccv->dtformat);
 
@@ -340,11 +342,128 @@ xc_chat_view_copy_selection (XcChatView *xccv)
 }
 
 
-void
-xc_chat_view_load_scrollback (XcChatView *xccv, gchar *filen)
-{
-  
+static void
+load_scrollback_finish (GObject *sobj, GAsyncResult *res, gpointer loop) {
+	XcChatView *xccv = XC_CHAT_VIEW (sobj);
+	GTask *task = G_TASK (res);
+	GError *error = NULL;
+
+	if (! g_task_propagate_boolean (task, &error)) {
+		GDateTime *dt = g_date_time_new_now_local ();
+		GString *msg = g_string_new ("Reading scrollback file failed: ");
+		g_string_append_len (msg, error->message, -1);
+		xc_chat_view_append0 (xccv, dt, "", msg->str);
+
+		g_error_free (error);
+		g_string_free (msg, TRUE);
+	}
+
+	g_object_unref (task);
 }
+
+
+static void
+load_scrollback_run (GTask *task, gpointer sobj, gpointer ud_file, GCancellable *cancellable) {
+	XcChatView *xccv = XC_CHAT_VIEW (sobj);
+	GFile *file = G_FILE (ud_file);
+	GError *error = NULL;
+	char *contents;
+	gsize length;
+
+	if (ud_file == NULL)
+		g_printerr ("oops\n");
+	if (g_file_load_contents (file, NULL, &contents, &length, NULL, &error)) // cancellable, etag
+	{
+		gchar **lines = g_strsplit (contents, "\n", 0);
+		GTimeZone *tz = g_time_zone_new_local ();
+
+		for (guint i = g_strv_length (lines) ; i > 0; i--) {
+			GDateTime *t = NULL;
+			gchar **f = g_strsplit (lines[i - 1], "\t", 3);
+
+			if (f == NULL || g_strv_length (f) < 3) {
+				xc_chat_view_append0 (xccv, NULL, "", "");
+				g_strfreev (f);
+				continue;
+			} else {
+				GDateTime *dt = g_date_time_new_from_iso8601 (f[0], NULL);
+
+				if (dt) {
+					t = g_date_time_to_timezone (dt, tz);
+					g_date_time_unref (dt);
+				}
+			}
+
+			xc_chat_view_append0 (xccv, t, f[1], f[2]);
+
+			if (f)
+				g_strfreev (f);
+			if (t != NULL)
+				g_date_time_unref (t);
+		}
+
+		g_strfreev (lines);
+		g_free (contents);
+		g_time_zone_unref (tz);
+		g_task_return_boolean (task, TRUE);
+	} else {
+		g_task_return_error (task, error);
+	}
+
+	g_object_unref (file);
+}
+
+
+void
+xc_chat_view_set_scrollback_file (XcChatView *xccv, gchar *filename)
+{
+  GError *error = NULL;
+  gboolean begin = FALSE;
+
+  GFile *file = g_file_new_for_path (filename);
+  GFileOutputStream *stream = g_file_create (file, G_FILE_CREATE_NONE, NULL, &error);
+  if (error == NULL)
+  {
+    g_object_unref (stream);
+    begin = TRUE;
+  } else if (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_EXISTS)) {
+    g_error_free (error);
+    begin = TRUE;
+  }
+
+  if (begin)
+  {
+    xccv->scrollback_filename = g_strdup (filename);
+    GTask *task = g_task_new (xccv, NULL, load_scrollback_finish, file); // cancellable
+    g_task_set_task_data (task, file, NULL);
+    g_task_run_in_thread (task, load_scrollback_run);
+  } else {
+    GDateTime *dt = g_date_time_new_now_local ();
+    GString *msg = g_string_new ("Set scrollback file failed: ");
+    g_string_append_len (msg, error->message, -1);
+    xc_chat_view_append0 (xccv, dt, "", msg->str);
+    g_date_time_unref (dt);
+    g_error_free (error);
+    g_string_free (msg, TRUE);
+  }
+}
+
+
+void
+xc_chat_view_append0 (	XcChatView	*xccv,
+			GDateTime	*dtime,
+			gchar		*handle,
+			gchar		*message ) {
+  GtkTreeIter	iter;
+
+  gtk_list_store_append (xccv->store, &iter);
+  gtk_list_store_set (xccv->store, &iter,
+    SFS_GDTIME, dtime,
+    SFS_HANDLE, handle,
+    SFS_MESSAG, message,
+    -1);
+}
+
 
 //int xc_chat_view_lastlog (xtext_buffer *out, xtext_buffer *search_area)
 //{
