@@ -108,8 +108,10 @@ example_activated (GtkApplication *app, gpointer user_data) {
 
 	gtk_widget_show_all (win);
 /*
+	xc_chat_view_set_font (xccv1, "Arimo 12");
 	xc_chat_view_set_scrollback_file (xccv1, "rrr");
 	xc_chat_view_set_scrollback_file (xccv1, "foo/rrr");
+	xc_chat_view_set_background (xccv1, "/home/peter/Pictures/tile_5020.png");
 */
 	xc_chat_view_set_scrollback_file (xccv1, "text1");
 	xc_chat_view_set_scrollback_file (xccv2, "text2");

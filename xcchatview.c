@@ -55,6 +55,10 @@ xc_chat_view_init (XcChatView *xccv)
   g_object_ref_sink (xccv->cell_ms);
   g_object_ref_sink (xccv->store);
   g_object_ref_sink (xccv->tview);
+/*
+  GdkRGBA foo = { 0.0, 0.0, 0.0, 0.0 }; // { R, G, B, A } 0.0 to 1.0 double
+  g_object_set (xccv->cell_ms, "background-rgba", &foo, NULL);
+*/
   g_object_set (xccv->cell_td, "font", "Monospace 10", NULL);
   g_object_set (xccv->cell_ms, "wrap-mode", PANGO_WRAP_WORD_CHAR, NULL);
   gtk_tree_view_set_headers_visible (xccv->tview, FALSE);
@@ -189,6 +193,7 @@ xc_chat_view_set_font (XcChatView *xccv, char *name)
   return 1;
 }
 
+
 void
 xc_chat_view_set_wordwrap (XcChatView *xccv, gboolean word_wrap)
 {
@@ -210,6 +215,7 @@ xc_chat_view_set_time_stamp (XcChatView *xccv, gboolean showtimed)
 
   dtime = gtk_tree_view_get_column (xccv->tview, TVC_TIMED);
   gtk_tree_view_column_set_visible (dtime, showtimed);
+  g_object_unref (dtime);
 }
 
 
