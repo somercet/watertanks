@@ -106,7 +106,7 @@ void	xc_chat_view_append_indent (	XcChatView	*xccv,
 					guchar		*message,
 					int		message_len,
 					time_t		stamp ); // gint64
-// fe-gtk.c:	1. sess->res->buffer, lines 2. fe_text_clear 
+// fe-gtk.c:	1. sess->res->buffer, lines 2. fe_text_clear
 // fkeys.c:	key_dialog_print_text
 // rawlog.c:	rawlog_clearbutton
 // void gtk_xtext_clear (xtext_buffer *buf, int lines);

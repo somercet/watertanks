@@ -9,15 +9,16 @@
 static void
 create_menu_item (GMenu *menu,
 		const gchar *const label, const gchar *const action,
-		const gchar *const icon,  const gchar *const accel) {
+		const gchar *const icon,  const gchar *const accel,
+		const gchar *const target) {
 	GMenuItem *item = g_menu_item_new (label, action);
 
 	if (icon)
 		g_menu_item_set_attribute (item, G_MENU_ATTRIBUTE_ICON, "s", icon, NULL);
 	if (accel)
 		g_menu_item_set_attribute (item, "accel", "s", accel, NULL);
-//	if (target)
-//		g_menu_item_set_attribute (item, G_MENU_ATTRIBUTE_TARGET, "s", target, NULL);
+	if (target)
+		g_menu_item_set_attribute (item, G_MENU_ATTRIBUTE_TARGET, "s", target, NULL);
 
 	g_menu_append_item (menu, item);
 	g_object_unref (item);
@@ -71,7 +72,9 @@ create_tabs (XcChatView *xccv, GtkWidget *stack, char *name) {
 static void
 example_activated (GtkApplication *app, gpointer user_data) {
 	GtkWidget *win = gtk_application_window_new (app);
+//	gtk_window_set_application (GTK_WINDOW (win), app);
 	gtk_window_set_title (GTK_WINDOW (win), "Example");
+	gtk_window_set_default_size (GTK_WINDOW (win), 400, 300);
 	g_signal_connect (win, "destroy", G_CALLBACK (example_destroy), app);
 
 	GtkWidget *mbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
@@ -79,7 +82,10 @@ example_activated (GtkApplication *app, gpointer user_data) {
 
 	GMenu *mmenu = g_menu_new ();
 	GMenu *smenu = g_menu_new ();
-	g_menu_append_submenu (mmenu, "_Hexchat", G_MENU_MODEL (smenu));
+	create_menu_item (smenu, "Page _Up",	"app.pgup",	NULL,			"<ctrl>Prior",	NULL);
+	create_menu_item (smenu, "Page _Down",	"app.pgdn",	NULL,			"<ctrl>Next",	NULL);
+	create_menu_item (smenu, "_Quit",	"app.quit",	"application-exit",	"<ctrl>q",	NULL);
+	g_menu_append_submenu (mmenu, "E_xample", G_MENU_MODEL (smenu));
 	gtk_application_set_menubar (app, G_MENU_MODEL (mmenu));
 	g_object_unref (mmenu);
 	g_object_unref (smenu);
@@ -94,12 +100,9 @@ example_activated (GtkApplication *app, gpointer user_data) {
 		{"pgup", cb_pgup, NULL, NULL, NULL},
 		{"pgdn", cb_pgdn, NULL, NULL, NULL},
 	};
+
 	g_action_map_add_action_entries (G_ACTION_MAP (app),  acts, G_N_ELEMENTS  (acts), app);
 	g_action_map_add_action_entries (G_ACTION_MAP (app), sacts, G_N_ELEMENTS (sacts), stack);
-
-	create_menu_item (smenu, "Page _Up",   "app.pgup", NULL, "<CTRL>Prior");
-	create_menu_item (smenu, "Page _Down", "app.pgdn", NULL, "<CTRL>Next");
-	create_menu_item (smenu, "_Quit", "app.quit", "application-exit", "<CTRL>Q");
 
 	XcChatView *xccv1 = (xc_chat_view_new ());
 	XcChatView *xccv2 = (xc_chat_view_new ());

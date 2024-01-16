@@ -206,7 +206,7 @@ xc_chat_view_set_wordwrap (XcChatView *xccv, gboolean word_wrap)
   gtk_tree_view_column_queue_resize (gtk_tree_view_get_column (xccv->tview, TVC_MESSAGE));
   // PANGO_WRAP_WORD, PANGO_WRAP_CHAR, PANGO_WRAP_WORD_CHAR
 }
-  
+
 
 void
 xc_chat_view_set_time_stamp (XcChatView *xccv, gboolean showtimed)
