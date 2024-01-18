@@ -72,9 +72,9 @@ xc_chat_view_init (XcChatView *xccv)
 
 
 static void
-xc_chat_view_class_init (XcChatViewClass *class)
+xc_chat_view_class_init (XcChatViewClass *klass)
 {
-  GObjectClass *gobject_class = G_OBJECT_CLASS (class);
+  GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
 
   /* virtual function overrides go here */
   gobject_class->dispose = xc_chat_view_dispose;
@@ -88,16 +88,11 @@ xc_chat_view_dispose (GObject *object)
 {
   XcChatView *xccv = XC_CHAT_VIEW (object);
 
-  if (xccv->tview)
-    g_object_unref (xccv->tview);
-  if (xccv->store)
-    g_object_unref (xccv->store);
-  if (xccv->cell_td)
-    g_object_unref (xccv->cell_td);
-  if (xccv->cell_hn)
-    g_object_unref (xccv->cell_hn);
-  if (xccv->cell_ms)
-    g_object_unref (xccv->cell_ms);
+  g_clear_object (&xccv->tview);
+  g_clear_object (&xccv->store);
+  g_clear_object (&xccv->cell_td);
+  g_clear_object (&xccv->cell_hn);
+  g_clear_object (&xccv->cell_ms);
 
   if (xccv->scrollback_filename)
     g_free (xccv->scrollback_filename);
@@ -106,7 +101,6 @@ xc_chat_view_dispose (GObject *object)
 
   G_OBJECT_CLASS (xc_chat_view_parent_class)->dispose (object);
 }
-
 
 
 static void
@@ -467,6 +461,7 @@ xc_chat_view_prepend0 (	XcChatView	*xccv,
     SFS_GDTIME, dtime,
     -1);
 }
+
 
 void
 xc_chat_view_append0 (	XcChatView	*xccv,
