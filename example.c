@@ -60,7 +60,40 @@ static void
 create_tabs (XcChatView *xccv, GtkWidget *stack, char *name) {
 	GtkWidget *sw = gtk_scrolled_window_new (NULL, NULL);
 	gtk_container_add (GTK_CONTAINER (sw), GTK_WIDGET (xccv->tview));
-	gtk_stack_add_named (GTK_STACK (stack), sw, name);
+	gtk_stack_add_titled (GTK_STACK (stack), sw, name, name);
+}
+
+
+static void
+cb_find (GSimpleAction *simple, GVariant *parameter, gpointer sbar) {
+	gboolean out = TRUE;
+
+	if (gtk_search_bar_get_search_mode (sbar))
+		out = FALSE;
+	gtk_search_bar_set_search_mode (sbar, out);
+}
+
+
+static GtkWidget *
+create_searchbar () {
+	GtkWidget *bar = gtk_search_bar_new ();
+	GtkWidget *box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
+	GtkWidget *up  = gtk_button_new_from_icon_name ("go-up", GTK_ICON_SIZE_SMALL_TOOLBAR);
+	GtkWidget *dn  = gtk_button_new_from_icon_name ("go-down", GTK_ICON_SIZE_SMALL_TOOLBAR);
+	GtkWidget *txt = gtk_search_entry_new ();
+	GtkWidget *all = gtk_toggle_button_new_with_label ("All");
+	GtkWidget *cse = gtk_toggle_button_new_with_label ("a≠A");
+	GtkWidget *rgx = gtk_toggle_button_new_with_label (".*");
+
+	gtk_container_add (GTK_CONTAINER (bar), box);
+	gtk_box_pack_start (GTK_BOX (box),  up, FALSE, FALSE, 0);
+	gtk_box_pack_start (GTK_BOX (box),  dn, FALSE, FALSE, 0);
+	gtk_box_pack_start (GTK_BOX (box), txt,  TRUE,  TRUE, 0);
+	gtk_box_pack_start (GTK_BOX (box), all, FALSE, FALSE, 0);
+	gtk_box_pack_start (GTK_BOX (box), cse, FALSE, FALSE, 0);
+	gtk_box_pack_start (GTK_BOX (box), rgx, FALSE, FALSE, 0);
+
+	return bar;
 }
 
 /* static void
@@ -82,6 +115,8 @@ example_activated (GtkApplication *app, gpointer user_data) {
 
 	GMenu *mmenu = g_menu_new ();
 	GMenu *smenu = g_menu_new ();
+	create_menu_item (smenu, "_Word Wrap",	"app.wrap",	NULL,			NULL,		NULL);
+	create_menu_item (smenu, "_Find",	"app.find",	NULL,			"<ctrl>f",	NULL);
 	create_menu_item (smenu, "Page _Up",	"app.pgup",	NULL,			"<ctrl>Prior",	NULL);
 	create_menu_item (smenu, "Page _Down",	"app.pgdn",	NULL,			"<ctrl>Next",	NULL);
 	create_menu_item (smenu, "_Quit",	"app.quit",	"application-exit",	"<ctrl>q",	NULL);
@@ -91,7 +126,12 @@ example_activated (GtkApplication *app, gpointer user_data) {
 	g_object_unref (smenu);
 
 	GtkWidget *stack = gtk_stack_new ();
-	gtk_box_pack_end   (GTK_BOX (mbox), stack,  TRUE,  TRUE, 0);
+	GtkWidget *sswitch = gtk_stack_switcher_new ();
+	gtk_stack_switcher_set_stack (GTK_STACK_SWITCHER (sswitch), GTK_STACK (stack));
+	GtkWidget *search = create_searchbar ();
+	gtk_box_pack_start (GTK_BOX (mbox), sswitch, FALSE, FALSE, 0);
+	gtk_box_pack_start (GTK_BOX (mbox),   stack,  TRUE,  TRUE, 0);
+	gtk_box_pack_start (GTK_BOX (mbox),  search, FALSE, FALSE, 0);
 
 	const GActionEntry acts[] = {
 		{"quit", cb_quit, NULL, NULL, NULL},
@@ -100,9 +140,13 @@ example_activated (GtkApplication *app, gpointer user_data) {
 		{"pgup", cb_pgup, NULL, NULL, NULL},
 		{"pgdn", cb_pgdn, NULL, NULL, NULL},
 	};
+	const GActionEntry facts[] = {
+		{"find", cb_find, NULL, NULL, NULL},
+	};
 
 	g_action_map_add_action_entries (G_ACTION_MAP (app),  acts, G_N_ELEMENTS  (acts), app);
 	g_action_map_add_action_entries (G_ACTION_MAP (app), sacts, G_N_ELEMENTS (sacts), stack);
+	g_action_map_add_action_entries (G_ACTION_MAP (app), facts, G_N_ELEMENTS (facts), search);
 
 	XcChatView *xccv1 = (xc_chat_view_new ());
 	XcChatView *xccv2 = (xc_chat_view_new ());
