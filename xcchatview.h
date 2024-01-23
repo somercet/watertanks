@@ -76,6 +76,12 @@ struct _XcChatView
 struct _XcChatViewClass
 {
   GObjectClass	parent_class;
+
+/* Standard OOP form function decs go here */
+  void (* append0)	(XcChatView	*xccv,
+			GDateTime	*dtime,
+			gchar	*handle,
+			gchar	*message);
 };
 
 

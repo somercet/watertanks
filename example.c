@@ -6,6 +6,13 @@
 #include "xcchatview.h"
 #endif
 
+struct Xccvbit {
+	gpointer xccv;
+	gpointer child;
+};
+
+static GList *stakk = NULL;
+
 static void
 create_menu_item (GMenu *menu,
 		const gchar *const label, const gchar *const action,
@@ -39,13 +46,6 @@ cb_pgup (GSimpleAction *simple, GVariant *parameter, gpointer stack) {
 }
 
 static void
-cb_pgdn (GSimpleAction *simple, GVariant *parameter, gpointer stack) {
-	GtkWidget *ch = gtk_stack_get_child_by_name (GTK_STACK (stack), "Two");
-
-	gtk_stack_set_visible_child (GTK_STACK (stack), ch);
-}
-
-static void
 cb_quit (GSimpleAction *simple, GVariant *parameter, gpointer app) {
 	g_application_quit (G_APPLICATION (app));
 }
@@ -57,10 +57,52 @@ example_destroy (GtkWidget *win, gpointer app) {
 
 
 static void
+cb_pgdn (GSimpleAction *simple, GVariant *parameter, gpointer stck) {
+	GtkStack *stack = GTK_STACK (stck);
+	struct Xccvbit *tab;
+	gboolean got = FALSE;
+
+	GtkWidget *current = gtk_stack_get_visible_child (stack);
+
+	GList *l;
+	for (l = stakk; l != NULL; l = l->next) {
+		tab = l->data;
+		if (got) {
+			gtk_stack_set_visible_child (stack, tab->child);
+			break;
+		}
+		if (current == tab->child)
+			got = TRUE;
+			// dir = reverse?
+	}
+
+/*
+	GList *l;
+	for (l = stakk; l != NULL; l = l->next) {
+		tab = l->data;
+		if (current == tab->child) {
+			if (l->next) {
+				l = l->next;
+				tab = l->data;
+				gtk_stack_set_visible_child (stack, tab->child);
+			}
+			break;
+		}
+	}
+*/
+}
+
+
+static void
 create_tabs (XcChatView *xccv, GtkWidget *stack, char *name) {
 	GtkWidget *sw = gtk_scrolled_window_new (NULL, NULL);
 	gtk_container_add (GTK_CONTAINER (sw), GTK_WIDGET (xccv->tview));
 	gtk_stack_add_titled (GTK_STACK (stack), sw, name, name);
+
+	struct Xccvbit *newtab = g_new (struct Xccvbit, 1);
+	newtab->xccv = xccv;
+	newtab->child = sw;
+	stakk = g_list_append (stakk, newtab);
 }
 
 
