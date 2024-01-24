@@ -39,13 +39,6 @@ create_menu_item (GMenu *menu,
 //}
 
 static void
-cb_pgup (GSimpleAction *simple, GVariant *parameter, gpointer stack) {
-	GtkWidget *ch = gtk_stack_get_child_by_name (GTK_STACK (stack), "One");
-
-	gtk_stack_set_visible_child (GTK_STACK (stack), ch);
-}
-
-static void
 cb_quit (GSimpleAction *simple, GVariant *parameter, gpointer app) {
 	g_application_quit (G_APPLICATION (app));
 }
@@ -57,39 +50,40 @@ example_destroy (GtkWidget *win, gpointer app) {
 
 
 static void
-cb_pgdn (GSimpleAction *simple, GVariant *parameter, gpointer stck) {
-	GtkStack *stack = GTK_STACK (stck);
+chpg (GtkStack *stack, gboolean up) {
 	struct Xccvbit *tab;
 	gboolean got = FALSE;
 
 	GtkWidget *current = gtk_stack_get_visible_child (stack);
 
 	GList *l;
-	for (l = stakk; l != NULL; l = l->next) {
+	for (l = stakk; l != NULL; ) {
 		tab = l->data;
 		if (got) {
 			gtk_stack_set_visible_child (stack, tab->child);
 			break;
 		}
-		if (current == tab->child)
-			got = TRUE;
-			// dir = reverse?
-	}
-
-/*
-	GList *l;
-	for (l = stakk; l != NULL; l = l->next) {
-		tab = l->data;
 		if (current == tab->child) {
-			if (l->next) {
-				l = l->next;
-				tab = l->data;
-				gtk_stack_set_visible_child (stack, tab->child);
+			got = TRUE;
+			if (up) {
+				l = l->prev;
+				continue;
 			}
-			break;
 		}
+		l = l->next;
 	}
-*/
+}
+
+
+static void
+cb_pgup (GSimpleAction *simple, GVariant *parameter, gpointer stck) {
+	chpg (GTK_STACK (stck), TRUE);
+}
+
+
+static void
+cb_pgdn (GSimpleAction *simple, GVariant *parameter, gpointer stck) {
+	chpg (GTK_STACK (stck), FALSE);
 }
 
 
