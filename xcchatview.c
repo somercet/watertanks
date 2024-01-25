@@ -67,7 +67,7 @@ xc_chat_view_init (XcChatView *xccv)
 						cell_func_dtime, xccv->dtformat, NULL);
   gtk_tree_view_insert_column_with_attributes (xccv->tview, TVC_HANDLE,    "Handle", xccv->cell_hn, "markup", SFS_HANDLE, NULL);
   gtk_tree_view_insert_column_with_attributes (xccv->tview, TVC_MESSAGE, "Messages", xccv->cell_ms, "markup", SFS_MESSAG, NULL);
-  gtk_tree_selection_set_mode(xccv->select, GTK_SELECTION_MULTIPLE);
+  gtk_tree_selection_set_mode (xccv->select, GTK_SELECTION_MULTIPLE);
 }
 
 
@@ -305,6 +305,7 @@ xc_chat_view_save (XcChatView *xccv, int fh)
 {
   return;
 }
+
 void
 xc_chat_view_copy_selection (XcChatView *xccv)
 {
@@ -312,26 +313,32 @@ xc_chat_view_copy_selection (XcChatView *xccv)
   GtkTreeIter	iter;
   GList		*rows, *r;
   GString	*hold;
-  gchar		*h, *hh, *m, *nl,
+  GDateTime	*gd;
+  gchar		*h, *m, *nl, *dt_str,
 		*newl = "\n",  *blank = "";
   gboolean	swap = TRUE;
 
   nl = blank;
-  hold = g_string_new(NULL);
+  hold = g_string_new (NULL);
   rows = gtk_tree_selection_get_selected_rows (xccv->select, &model);
 
   for (r = rows; r != NULL; r = r->next)
   {
     if (gtk_tree_model_get_iter (model, &iter, r->data))
     {
-      gtk_tree_model_get (model, &iter, SFS_HANDLE, &h, SFS_MESSAG, &m, -1);
-      if (h)
-        hh = h;
+      gtk_tree_model_get (model, &iter, SFS_GDTIME, &gd, SFS_HANDLE, &h,
+                          SFS_MESSAG, &m, -1);
+      if (gd)
+        dt_str = g_date_time_format (gd, xccv->dtformat);
       else
-        hh = blank;
-      g_string_append_printf (hold, "%s<%s>\t%s", nl, hh, m);
-      g_free(h);
-      g_free(m);
+        dt_str = blank;
+      g_string_append_printf (hold, "%s%s\t<%s>\t%s", nl, dt_str, h, m);
+      g_free (h);
+      g_free (m);
+      if (dt_str && dt_str != blank)
+        g_free (dt_str);
+      if (gd)
+          g_date_time_unref (gd);
       if (swap)
       {
         nl = newl;
@@ -343,7 +350,6 @@ xc_chat_view_copy_selection (XcChatView *xccv)
   gtk_clipboard_set_text (xccv->clippy, hold->str, hold->len);
   g_string_free (hold, TRUE);
 }
-
 
 static void
 load_scrollback_finish (GObject *sobj, GAsyncResult *res, gpointer loop) {

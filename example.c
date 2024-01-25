@@ -38,10 +38,35 @@ create_menu_item (GMenu *menu,
 //	g_simple_action_set_state (action, state);
 //}
 
+
+static XcChatView *
+get_active_xccv (GtkStack *stack) {
+	struct Xccvbit *tab;
+	GtkWidget *current = gtk_stack_get_visible_child (stack);
+
+	GList *l;
+	for (l = stakk; l != NULL; l = l->next) {
+		tab = l->data;
+		if (current == tab->child)
+			break;
+	}
+	return tab->xccv;
+}
+
+
+static void
+cb_copy (GSimpleAction *simple, GVariant *parameter, gpointer stck) {
+	XcChatView *xccv = get_active_xccv (GTK_STACK (stck));
+
+	xc_chat_view_copy_selection (xccv);
+}
+
+
 static void
 cb_quit (GSimpleAction *simple, GVariant *parameter, gpointer app) {
 	g_application_quit (G_APPLICATION (app));
 }
+
 
 static void
 example_destroy (GtkWidget *win, gpointer app) {
@@ -53,7 +78,6 @@ static void
 chpg (GtkStack *stack, gboolean up) {
 	struct Xccvbit *tab;
 	gboolean got = FALSE;
-
 	GtkWidget *current = gtk_stack_get_visible_child (stack);
 
 	GList *l;
@@ -79,8 +103,6 @@ static void
 cb_pgup (GSimpleAction *simple, GVariant *parameter, gpointer stck) {
 	chpg (GTK_STACK (stck), TRUE);
 }
-
-
 static void
 cb_pgdn (GSimpleAction *simple, GVariant *parameter, gpointer stck) {
 	chpg (GTK_STACK (stck), FALSE);
@@ -151,21 +173,23 @@ example_activated (GtkApplication *app, gpointer user_data) {
 
 	GMenu *mmenu = g_menu_new ();
 	GMenu *smenu = g_menu_new ();
-	create_menu_item (smenu, "_Word Wrap",	"app.wrap",	NULL,			NULL,		NULL);
-	create_menu_item (smenu, "_Find",	"app.find",	NULL,			"<ctrl>f",	NULL);
-	create_menu_item (smenu, "Page _Up",	"app.pgup",	NULL,			"<ctrl>Prior",	NULL);
-	create_menu_item (smenu, "Page _Down",	"app.pgdn",	NULL,			"<ctrl>Next",	NULL);
-	create_menu_item (smenu, "_Quit",	"app.quit",	"application-exit",	"<ctrl>q",	NULL);
+	create_menu_item (smenu, "_Copy",	"app.copy",	NULL,	"<ctrl>c",	NULL);
+	create_menu_item (smenu, "_Word Wrap",	"app.wrap",	NULL,	NULL,		NULL);
+	create_menu_item (smenu, "_Find",	"app.find",	NULL,	"<ctrl>f",	NULL);
+	create_menu_item (smenu, "Page _Up",	"app.pgup",	NULL,	"<ctrl>Prior",	NULL);
+	create_menu_item (smenu, "Page _Down",	"app.pgdn",	NULL,	"<ctrl>Next",	NULL);
+	create_menu_item (smenu, "_Quit",	"app.quit",	"application-exit",
+									"<ctrl>q",	NULL);
 	g_menu_append_submenu (mmenu, "E_xample", G_MENU_MODEL (smenu));
 	gtk_application_set_menubar (app, G_MENU_MODEL (mmenu));
 	g_object_unref (mmenu);
 	g_object_unref (smenu);
 
 	GtkWidget *stack = gtk_stack_new ();
-	GtkWidget *sswitch = gtk_stack_switcher_new ();
-	gtk_stack_switcher_set_stack (GTK_STACK_SWITCHER (sswitch), GTK_STACK (stack));
+//	GtkWidget *sswitch = gtk_stack_switcher_new ();
+//	gtk_stack_switcher_set_stack (GTK_STACK_SWITCHER (sswitch), GTK_STACK (stack));
 	GtkWidget *search = create_searchbar ();
-	gtk_box_pack_start (GTK_BOX (mbox), sswitch, FALSE, FALSE, 0);
+//	gtk_box_pack_start (GTK_BOX (mbox), sswitch, FALSE, FALSE, 0);
 	gtk_box_pack_start (GTK_BOX (mbox),   stack,  TRUE,  TRUE, 0);
 	gtk_box_pack_start (GTK_BOX (mbox),  search, FALSE, FALSE, 0);
 
@@ -173,6 +197,7 @@ example_activated (GtkApplication *app, gpointer user_data) {
 		{"quit", cb_quit, NULL, NULL, NULL},
 	};
 	const GActionEntry sacts[] = {
+		{"copy", cb_copy, NULL, NULL, NULL},
 		{"pgup", cb_pgup, NULL, NULL, NULL},
 		{"pgdn", cb_pgdn, NULL, NULL, NULL},
 	};
