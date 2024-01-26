@@ -1,4 +1,6 @@
 
+# indent -linux -pcs -psl -brf -nfca -gts -nfc1 -gts
+
 CFLAGS += -std=gnu99 -pipe -Werror -Wall -g $$( pkgconf --cflags gtk+-3.0 )
 LDFLAGS += $$( pkgconf --libs gtk+-3.0 )
 

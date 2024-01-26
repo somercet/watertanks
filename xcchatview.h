@@ -178,10 +178,13 @@ void xc_chat_view_copy_selection (	XcChatView	*xccv );
 // void gtk_xtext_save (GtkXText * xtext, int fh);
 void xc_chat_view_save (	XcChatView	*xccv,
 				int		fh );
+// maingui.c	search_handle_event
+// textentry *gtk_xtext_search (GtkXText * xtext, const gchar *text, gtk_xtext_search_flags flags, GError **err);
+void xccx_run_search (	XcChatView xccv,
+			GtkSearchEntry *entry,
+			const gchar *search_text );
 // fe-gtk.c	fe_lastlog
 //int gtk_xtext_lastlog (xtext_buffer *out, xtext_buffer *search_area);
-// int xc_chat_view_lastlog (xtext_buffer *out, xtext_buffer *search_area);
-// gtk_xtext_is_empty() might be useful to turn off lastlog
 
 
 
@@ -198,6 +201,11 @@ void		xc_chat_view_append0 (	XcChatView	*xccv,
 					gchar		*handle,
 					gchar		*message );
 
+// comment out for now
+//
+// maingui.c	mg_create_textarea
+// gtk_xtext_set_urlcheck_function (xtext, mg_word_check);
+// void gtk_xtext_set_urlcheck_function (GtkXText *xtext, int (*urlcheck_function) (GtkWidget *, char *));
 
 
 // TODO: this one is a doozy.  It looks as though setting up
@@ -233,18 +241,6 @@ void		xc_chat_view_append0 (	XcChatView	*xccv,
 // void gtk_xtext_buffer_free (xtext_buffer *buf);
 
 
-// comment out for now
-//
-// maingui.c	mg_create_textarea
-// gtk_xtext_set_urlcheck_function (xtext, mg_word_check);
-// void gtk_xtext_set_urlcheck_function (GtkXText *xtext, int (*urlcheck_function) (GtkWidget *, char *));
-
-
-
 G_END_DECLS
 #endif /* _xc_chat_view_h_ */
 
-/*
-// maingui.c	search_handle_event
-textentry *gtk_xtext_search (GtkXText * xtext, const gchar *text, gtk_xtext_search_flags flags, GError **err);
-*/

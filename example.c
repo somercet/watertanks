@@ -31,13 +31,14 @@ create_menu_item (GMenu *menu,
 	g_object_unref (item);
 }
 
-//state part 10
-//static void cb_state (GSimpleAction *action,
-//	GVariant *state,
-//	gpointer app) {
-//	g_simple_action_set_state (action, state);
-//}
-
+/*
+state part 10
+static void cb_state (GSimpleAction *action,
+	GVariant *state,
+	gpointer app) {
+	g_simple_action_set_state (action, state);
+}
+*/
 
 static XcChatView *
 get_active_xccv (GtkStack *stack) {
@@ -57,20 +58,19 @@ get_active_xccv (GtkStack *stack) {
 static void
 cb_copy (GSimpleAction *simple, GVariant *parameter, gpointer stck) {
 	XcChatView *xccv = get_active_xccv (GTK_STACK (stck));
-
 	xc_chat_view_copy_selection (xccv);
-}
-
-
-static void
-cb_quit (GSimpleAction *simple, GVariant *parameter, gpointer app) {
-	g_application_quit (G_APPLICATION (app));
 }
 
 
 static void
 example_destroy (GtkWidget *win, gpointer app) {
 	g_application_quit (G_APPLICATION (app));
+}
+
+
+static void
+cb_quit (GSimpleAction *simple, GVariant *parameter, gpointer app) {
+	example_destroy (NULL, app);
 }
 
 
@@ -124,26 +124,33 @@ create_tabs (XcChatView *xccv, GtkWidget *stack, char *name) {
 
 static void
 cb_find (GSimpleAction *simple, GVariant *parameter, gpointer sbar) {
-	gboolean out = TRUE;
+	gboolean tog = TRUE;
 
 	if (gtk_search_bar_get_search_mode (sbar))
-		out = FALSE;
-	gtk_search_bar_set_search_mode (sbar, out);
+		tog = FALSE;
+	gtk_search_bar_set_search_mode (sbar, tog);
+}
+
+static void create_button (gboolean toggle, gchar *icon, gchar *label, ) {
+
 }
 
 
 static GtkWidget *
-create_searchbar () {
-	GtkWidget *bar = gtk_search_bar_new ();
-	GtkWidget *box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
-	GtkWidget *up  = gtk_button_new_from_icon_name ("go-up", GTK_ICON_SIZE_SMALL_TOOLBAR);
-	GtkWidget *dn  = gtk_button_new_from_icon_name ("go-down", GTK_ICON_SIZE_SMALL_TOOLBAR);
-	GtkWidget *txt = gtk_search_entry_new ();
-	GtkWidget *all = gtk_toggle_button_new_with_label ("All");
-	GtkWidget *cse = gtk_toggle_button_new_with_label ("a≠A");
-	GtkWidget *rgx = gtk_toggle_button_new_with_label (".*");
+create_searchbar (GtkWidget *bar) {
+	GtkWidget *box, *up, *dn, *txt, *all, *cse, *rgx;
+
+	box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
+	up  = gtk_button_new_from_icon_name ("go-up", GTK_ICON_SIZE_SMALL_TOOLBAR);
+	dn  = gtk_button_new_from_icon_name ("go-down", GTK_ICON_SIZE_SMALL_TOOLBAR);
+	txt = gtk_search_entry_new ();
+	all = gtk_toggle_button_new_with_label ("All");
+	cse = gtk_toggle_button_new_with_label ("a≠A");
+	rgx = gtk_toggle_button_new_with_label (".*");
 
 	gtk_container_add (GTK_CONTAINER (bar), box);
+	gtk_search_bar_connect_entry (GTK_SEARCH_BAR (bar), GTK_ENTRY (txt));
+	gtk_search_bar_set_show_close_button (GTK_SEARCH_BAR (bar), TRUE);
 	gtk_box_pack_start (GTK_BOX (box),  up, FALSE, FALSE, 0);
 	gtk_box_pack_start (GTK_BOX (box),  dn, FALSE, FALSE, 0);
 	gtk_box_pack_start (GTK_BOX (box), txt,  TRUE,  TRUE, 0);
@@ -151,11 +158,43 @@ create_searchbar () {
 	gtk_box_pack_start (GTK_BOX (box), cse, FALSE, FALSE, 0);
 	gtk_box_pack_start (GTK_BOX (box), rgx, FALSE, FALSE, 0);
 
-	return bar;
+	return txt;
+/*
+
+gtk_label_new (NULL);
+gtk_label_set_selectable ()
+gtk_label_set_width_chars (, 9) [10 of 102]
+gtk_label_set_line_wrap FALSE
+stack runs the search entry and label, and a timer to update the label.
+xccv runs the search and updates the search info {
+guint search_item
+guint total_found
+bool search_running 
+char search_flags }
+
+global pointer array for stack to use searchbar
+
+up/down tell stack, and stack calls function that Ctrl-G does.
+ignore All for now
+cse and rgx set flags, flags are in XcChatView
+
+xccv needs signal for bar to signal updates. or semaphore? Asynch queue?
+Or just int func return?
+
+*/
+
+
+}
+
+
+static void
+run_search (GtkSearchEntry *entry, gpointer stck) {
+	XcChatView *xccv = get_active_xccv (GtkStack *stack);
+	xccx_run_search (xccv, entry, gtk_entry_get_text (entry);
 }
 
 /* static void
- example_started (GtkApplication *app, gpointer user_data) {
+example_started (GtkApplication *app, gpointer user_data) {
 	if (gtk_application_prefers_app_menu (app))
 		gtk_application_set_app_menu (app, G_MENU_MODEL(menu));
 } */
@@ -163,7 +202,7 @@ create_searchbar () {
 static void
 example_activated (GtkApplication *app, gpointer user_data) {
 	GtkWidget *win = gtk_application_window_new (app);
-//	gtk_window_set_application (GTK_WINDOW (win), app);
+	//gtk_window_set_application (GTK_WINDOW (win), app);
 	gtk_window_set_title (GTK_WINDOW (win), "Example");
 	gtk_window_set_default_size (GTK_WINDOW (win), 400, 300);
 	g_signal_connect (win, "destroy", G_CALLBACK (example_destroy), app);
@@ -186,12 +225,12 @@ example_activated (GtkApplication *app, gpointer user_data) {
 	g_object_unref (smenu);
 
 	GtkWidget *stack = gtk_stack_new ();
-//	GtkWidget *sswitch = gtk_stack_switcher_new ();
-//	gtk_stack_switcher_set_stack (GTK_STACK_SWITCHER (sswitch), GTK_STACK (stack));
-	GtkWidget *search = create_searchbar ();
-//	gtk_box_pack_start (GTK_BOX (mbox), sswitch, FALSE, FALSE, 0);
-	gtk_box_pack_start (GTK_BOX (mbox),   stack,  TRUE,  TRUE, 0);
-	gtk_box_pack_start (GTK_BOX (mbox),  search, FALSE, FALSE, 0);
+	GtkWidget *sbar = gtk_search_bar_new ();
+	GtkWidget *search = create_searchbar (sbar);
+	gtk_box_pack_start (GTK_BOX (mbox), stack,  TRUE,  TRUE, 0);
+	gtk_box_pack_start (GTK_BOX (mbox),  sbar, FALSE, FALSE, 0);
+
+	g_signal_connect (search, "search-changed", G_CALLBACK (run_search), stack);
 
 	const GActionEntry acts[] = {
 		{"quit", cb_quit, NULL, NULL, NULL},
@@ -207,7 +246,7 @@ example_activated (GtkApplication *app, gpointer user_data) {
 
 	g_action_map_add_action_entries (G_ACTION_MAP (app),  acts, G_N_ELEMENTS  (acts), app);
 	g_action_map_add_action_entries (G_ACTION_MAP (app), sacts, G_N_ELEMENTS (sacts), stack);
-	g_action_map_add_action_entries (G_ACTION_MAP (app), facts, G_N_ELEMENTS (facts), search);
+	g_action_map_add_action_entries (G_ACTION_MAP (app), facts, G_N_ELEMENTS (facts), sbar);
 
 	XcChatView *xccv1 = (xc_chat_view_new ());
 	XcChatView *xccv2 = (xc_chat_view_new ());
@@ -231,7 +270,7 @@ main (int argc, char *argv[]) {
 	int r;
 	GtkApplication *app = gtk_application_new ("com.github.example", G_APPLICATION_DEFAULT_FLAGS); // G_APPLICATION_FLAGS_NONE);
 
-//	g_signal_connect (app, "startup",  G_CALLBACK (example_started),   NULL);
+	//g_signal_connect (app, "startup",  G_CALLBACK (example_started),   NULL);
 	g_signal_connect (app, "activate", G_CALLBACK (example_activated), NULL);
 
 	r = g_application_run (G_APPLICATION (app), argc, argv);
