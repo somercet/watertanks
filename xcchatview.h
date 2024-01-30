@@ -180,9 +180,8 @@ void xc_chat_view_save (	XcChatView	*xccv,
 				int		fh );
 // maingui.c	search_handle_event
 // textentry *gtk_xtext_search (GtkXText * xtext, const gchar *text, gtk_xtext_search_flags flags, GError **err);
-void xccx_run_search (	XcChatView xccv,
-			GtkSearchEntry *entry,
-			const gchar *search_text );
+void xc_chat_view_run_search (	XcChatView	*xccv,
+				const gchar *search_text);
 // fe-gtk.c	fe_lastlog
 //int gtk_xtext_lastlog (xtext_buffer *out, xtext_buffer *search_area);
 

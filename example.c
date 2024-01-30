@@ -13,6 +13,19 @@ struct Xccvbit {
 
 static GList *stakk = NULL;
 
+enum isrch {
+	SI_BAR = 0,
+	SI_UP,
+	SI_DOWN,
+	SI_ENTRY,
+	SI_LABEL,
+	SI_ALL,
+	SI_CASE,
+	SI_REGEX
+};
+
+static gpointer searchopts[8];
+
 static void
 create_menu_item (GMenu *menu,
 		const gchar *const label, const gchar *const action,
@@ -123,46 +136,46 @@ create_tabs (XcChatView *xccv, GtkWidget *stack, char *name) {
 
 
 static void
-cb_find (GSimpleAction *simple, GVariant *parameter, gpointer sbar) {
+cb_find (GSimpleAction *simple, GVariant *parameter, gpointer stck) {
 	gboolean tog = TRUE;
 
-	if (gtk_search_bar_get_search_mode (sbar))
+	if (gtk_search_bar_get_search_mode (searchopts[SI_BAR]))
 		tog = FALSE;
-	gtk_search_bar_set_search_mode (sbar, tog);
+	gtk_search_bar_set_search_mode (searchopts[SI_BAR], tog);
 }
 
-static void create_button (gboolean toggle, gchar *icon, gchar *label, ) {
-
+static void
+run_search (GtkSearchEntry *entry, gpointer stck) {
+	XcChatView *xccv = get_active_xccv (GTK_STACK (stck));
+	xc_chat_view_run_search (xccv, gtk_entry_get_text (GTK_ENTRY (entry)));
 }
 
+static void
+create_searchbar (GtkWidget *bar, GtkWidget *stack) {
+	GtkWidget *bx = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
+	GtkBox *box = GTK_BOX (bx);
+	searchopts[SI_BAR]   = bar;
+	searchopts[SI_UP]    = gtk_button_new_from_icon_name ("go-up", GTK_ICON_SIZE_SMALL_TOOLBAR);
+	searchopts[SI_DOWN]  = gtk_button_new_from_icon_name ("go-down", GTK_ICON_SIZE_SMALL_TOOLBAR);
+	searchopts[SI_ENTRY] = gtk_search_entry_new ();
+	searchopts[SI_ALL]   = gtk_toggle_button_new_with_label ("All");
+	searchopts[SI_CASE]  = gtk_toggle_button_new_with_label ("a=A"); // a≠A
+	searchopts[SI_REGEX] = gtk_toggle_button_new_with_label (".*");
 
-static GtkWidget *
-create_searchbar (GtkWidget *bar) {
-	GtkWidget *box, *up, *dn, *txt, *all, *cse, *rgx;
-
-	box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
-	up  = gtk_button_new_from_icon_name ("go-up", GTK_ICON_SIZE_SMALL_TOOLBAR);
-	dn  = gtk_button_new_from_icon_name ("go-down", GTK_ICON_SIZE_SMALL_TOOLBAR);
-	txt = gtk_search_entry_new ();
-	all = gtk_toggle_button_new_with_label ("All");
-	cse = gtk_toggle_button_new_with_label ("a≠A");
-	rgx = gtk_toggle_button_new_with_label (".*");
-
-	gtk_container_add (GTK_CONTAINER (bar), box);
-	gtk_search_bar_connect_entry (GTK_SEARCH_BAR (bar), GTK_ENTRY (txt));
+	gtk_container_add (GTK_CONTAINER (bar), bx);
+	gtk_search_bar_connect_entry (GTK_SEARCH_BAR (bar), GTK_ENTRY (searchopts[SI_ENTRY]));
 	gtk_search_bar_set_show_close_button (GTK_SEARCH_BAR (bar), TRUE);
-	gtk_box_pack_start (GTK_BOX (box),  up, FALSE, FALSE, 0);
-	gtk_box_pack_start (GTK_BOX (box),  dn, FALSE, FALSE, 0);
-	gtk_box_pack_start (GTK_BOX (box), txt,  TRUE,  TRUE, 0);
-	gtk_box_pack_start (GTK_BOX (box), all, FALSE, FALSE, 0);
-	gtk_box_pack_start (GTK_BOX (box), cse, FALSE, FALSE, 0);
-	gtk_box_pack_start (GTK_BOX (box), rgx, FALSE, FALSE, 0);
+	gtk_box_pack_start (box, searchopts[SI_UP],    FALSE, FALSE, 0);
+	gtk_box_pack_start (box, searchopts[SI_DOWN],  FALSE, FALSE, 0);
+	gtk_box_pack_start (box, searchopts[SI_ENTRY],  TRUE,  TRUE, 0);
+	gtk_box_pack_start (box, searchopts[SI_ALL],   FALSE, FALSE, 0);
+	gtk_box_pack_start (box, searchopts[SI_CASE],  FALSE, FALSE, 0);
+	gtk_box_pack_start (box, searchopts[SI_REGEX], FALSE, FALSE, 0);
 
-	return txt;
+	g_signal_connect (searchopts[SI_ENTRY], "search-changed", G_CALLBACK (run_search), stack);
 /*
-
+gtk_label_set_selectable (, false)
 gtk_label_new (NULL);
-gtk_label_set_selectable ()
 gtk_label_set_width_chars (, 9) [10 of 102]
 gtk_label_set_line_wrap FALSE
 stack runs the search entry and label, and a timer to update the label.
@@ -182,16 +195,8 @@ xccv needs signal for bar to signal updates. or semaphore? Asynch queue?
 Or just int func return?
 
 */
-
-
 }
 
-
-static void
-run_search (GtkSearchEntry *entry, gpointer stck) {
-	XcChatView *xccv = get_active_xccv (GtkStack *stack);
-	xccx_run_search (xccv, entry, gtk_entry_get_text (entry);
-}
 
 /* static void
 example_started (GtkApplication *app, gpointer user_data) {
@@ -226,27 +231,22 @@ example_activated (GtkApplication *app, gpointer user_data) {
 
 	GtkWidget *stack = gtk_stack_new ();
 	GtkWidget *sbar = gtk_search_bar_new ();
-	GtkWidget *search = create_searchbar (sbar);
+	create_searchbar (sbar, stack);
 	gtk_box_pack_start (GTK_BOX (mbox), stack,  TRUE,  TRUE, 0);
 	gtk_box_pack_start (GTK_BOX (mbox),  sbar, FALSE, FALSE, 0);
 
-	g_signal_connect (search, "search-changed", G_CALLBACK (run_search), stack);
-
 	const GActionEntry acts[] = {
-		{"quit", cb_quit, NULL, NULL, NULL},
+		{"quit", cb_quit, NULL, NULL, NULL, {0, 0, 0}},
 	};
 	const GActionEntry sacts[] = {
-		{"copy", cb_copy, NULL, NULL, NULL},
-		{"pgup", cb_pgup, NULL, NULL, NULL},
-		{"pgdn", cb_pgdn, NULL, NULL, NULL},
-	};
-	const GActionEntry facts[] = {
-		{"find", cb_find, NULL, NULL, NULL},
+		{"copy", cb_copy, NULL, NULL, NULL, {0, 0, 0}},
+		{"pgup", cb_pgup, NULL, NULL, NULL, {0, 0, 0}},
+		{"pgdn", cb_pgdn, NULL, NULL, NULL, {0, 0, 0}},
+		{"find", cb_find, NULL, NULL, NULL, {0, 0, 0}},
 	};
 
 	g_action_map_add_action_entries (G_ACTION_MAP (app),  acts, G_N_ELEMENTS  (acts), app);
 	g_action_map_add_action_entries (G_ACTION_MAP (app), sacts, G_N_ELEMENTS (sacts), stack);
-	g_action_map_add_action_entries (G_ACTION_MAP (app), facts, G_N_ELEMENTS (facts), sbar);
 
 	XcChatView *xccv1 = (xc_chat_view_new ());
 	XcChatView *xccv2 = (xc_chat_view_new ());

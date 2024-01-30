@@ -485,7 +485,6 @@ xc_chat_view_append0 (	XcChatView	*xccv,
   GtkTreeIter	iter;
 
   gtk_list_store_append (xccv->store, &iter);
-
   gtk_list_store_set (xccv->store, &iter,
     SFS_HANDLE, handle,
     SFS_MESSAG, message,
@@ -494,8 +493,8 @@ xc_chat_view_append0 (	XcChatView	*xccv,
 }
 
 void
-xccx_run_search (XcChatView xccv, GtkSearchEntry *entry, const gchar *search_text) {
-
+xc_chat_view_run_search (XcChatView *xccv, const gchar *search_text) {
+	return;
 }
 
 
