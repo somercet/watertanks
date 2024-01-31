@@ -275,6 +275,7 @@ main (int argc, char *argv[]) {
 
 	r = g_application_run (G_APPLICATION (app), argc, argv);
 	g_object_unref (app);
+	g_clear_list (&stakk, (GDestroyNotify) g_free);
 	return r;
 }
 

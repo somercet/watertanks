@@ -54,7 +54,6 @@ enum storefs {
 	SFS_COLNUM
 };
 
-
 struct _XcChatView
 {
   /* Instance variables */

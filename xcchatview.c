@@ -10,6 +10,11 @@
 #include "xcchatview.h"
 #endif
 
+enum xc_chat_view_properties {
+    XCP_DTFORMAT = 1,
+    XCP_COUNT
+};
+
 /* static func declarations */
 static void	cell_func_dtime (	GtkTreeViewColumn	*tree_column,
 					GtkCellRenderer		*cell,
@@ -19,6 +24,8 @@ static void	cell_func_dtime (	GtkTreeViewColumn	*tree_column,
 static void	xc_chat_view_init (	XcChatView		*xccv );
 static void	xc_chat_view_class_init	(XcChatViewClass	*class );
 static void	xc_chat_view_dispose (	GObject			*object );
+static void	xc_chat_view_set_property (GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec);
+static void	xc_chat_view_get_property (GObject *object, guint prop_id, GValue *value, GParamSpec *pspec);
 
 G_DEFINE_TYPE(XcChatView, xc_chat_view, G_TYPE_OBJECT)
 
@@ -36,7 +43,7 @@ static void
 xc_chat_view_init (XcChatView *xccv)
 {
   /* initialisation goes here */
-  xccv->dtformat = g_strdup ("%FT%T");
+  //xccv->dtformat = g_strdup ("%FT%T");
   xccv->cell_td = gtk_cell_renderer_text_new ();
   xccv->cell_hn = gtk_cell_renderer_text_new ();
   xccv->cell_ms = gtk_cell_renderer_text_new ();
@@ -79,8 +86,19 @@ xc_chat_view_class_init (XcChatViewClass *klass)
 
   /* virtual function overrides go here */
   gobject_class->dispose = xc_chat_view_dispose;
+  gobject_class->get_property = xc_chat_view_get_property;
+  gobject_class->set_property = xc_chat_view_set_property;
 
   /* property and signal definitions go here */
+  GParamSpec *properties[XCP_COUNT] = { NULL };
+  properties[XCP_DTFORMAT] = g_param_spec_string (
+    "stamp-text-format",			// name
+    "Timestamp format",				// nickname
+    "See the strftime manpage for details.",	// description
+    "%D",					// Default value
+    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+
+  g_object_class_install_properties (gobject_class, XCP_COUNT, properties);
 }
 
 
@@ -101,6 +119,38 @@ xc_chat_view_dispose (GObject *object)
     g_free (xccv->dtformat);
 
   G_OBJECT_CLASS (xc_chat_view_parent_class)->dispose (object);
+}
+
+
+static void
+xc_chat_view_set_property (GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec) {
+  XcChatView *xccv = XC_CHAT_VIEW (object);
+
+  switch (prop_id) {
+    case XCP_DTFORMAT:
+      if (xccv->dtformat)
+        g_free (xccv->dtformat);
+      xccv->dtformat = g_value_dup_string (value);
+      break;
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+      break;
+  }
+}
+
+
+static void
+xc_chat_view_get_property (GObject *object, guint prop_id, GValue *value, GParamSpec *pspec) {
+  XcChatView *xccv = XC_CHAT_VIEW (object);
+
+  switch (prop_id) {
+    case XCP_DTFORMAT:
+      g_value_set_string (value, xccv->dtformat);
+      break;
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+      break;
+  }
 }
 
 
@@ -166,10 +216,9 @@ xc_chat_view_append_indent (XcChatView *xccv,
 
 // TODO: lines <0 from bottom, 0 all, >0 from top
 void
-xc_chat_view_clear (	XcChatView	*xccv,
-			int		lines)
+xc_chat_view_clear (XcChatView	*xccv, int lines)
 {
-	gtk_list_store_clear (xccv->store);
+  gtk_list_store_clear (xccv->store);
 }
 
 
