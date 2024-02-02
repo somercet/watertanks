@@ -24,8 +24,8 @@ static void	cell_func_dtime (	GtkTreeViewColumn	*tree_column,
 static void	xc_chat_view_init (	XcChatView		*xccv );
 static void	xc_chat_view_class_init	(XcChatViewClass	*class );
 static void	xc_chat_view_dispose (	GObject			*object );
-static void	xc_chat_view_set_property (GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec);
-static void	xc_chat_view_get_property (GObject *object, guint prop_id, GValue *value, GParamSpec *pspec);
+//static void	xc_chat_view_set_property (GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec);
+//static void	xc_chat_view_get_property (GObject *object, guint prop_id, GValue *value, GParamSpec *pspec);
 
 G_DEFINE_TYPE(XcChatView, xc_chat_view, G_TYPE_OBJECT)
 
@@ -43,7 +43,9 @@ static void
 xc_chat_view_init (XcChatView *xccv)
 {
   /* initialisation goes here */
-  //xccv->dtformat = g_strdup ("%FT%T");
+  xccv->dtformat = g_strdup ("%F");
+  //g_object_get (xccv, "stamp-text-format", &xccv->dtformat, NULL);
+  //g_print ("%s\n", xccv->dtformat);
   xccv->cell_td = gtk_cell_renderer_text_new ();
   xccv->cell_hn = gtk_cell_renderer_text_new ();
   xccv->cell_ms = gtk_cell_renderer_text_new ();
@@ -86,10 +88,12 @@ xc_chat_view_class_init (XcChatViewClass *klass)
 
   /* virtual function overrides go here */
   gobject_class->dispose = xc_chat_view_dispose;
+/*
   gobject_class->get_property = xc_chat_view_get_property;
   gobject_class->set_property = xc_chat_view_set_property;
-
+*/
   /* property and signal definitions go here */
+/*
   GParamSpec *properties[XCP_COUNT] = { NULL };
   properties[XCP_DTFORMAT] = g_param_spec_string (
     "stamp-text-format",			// name
@@ -99,6 +103,7 @@ xc_chat_view_class_init (XcChatViewClass *klass)
     G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
 
   g_object_class_install_properties (gobject_class, XCP_COUNT, properties);
+*/
 }
 
 
@@ -121,7 +126,7 @@ xc_chat_view_dispose (GObject *object)
   G_OBJECT_CLASS (xc_chat_view_parent_class)->dispose (object);
 }
 
-
+/*
 static void
 xc_chat_view_set_property (GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec) {
   XcChatView *xccv = XC_CHAT_VIEW (object);
@@ -152,7 +157,7 @@ xc_chat_view_get_property (GObject *object, guint prop_id, GValue *value, GParam
       break;
   }
 }
-
+*/
 
 static void
 cell_func_dtime (	GtkTreeViewColumn	*tree_column,

@@ -6,25 +6,33 @@
 #include "xcchatview.h"
 #endif
 
-struct Xccvbit {
+GSettings *
+settings;
+static GList *
+stakk = NULL;
+
+struct
+Xccvbit {
 	gpointer xccv;
 	gpointer child;
 };
 
-static GList *stakk = NULL;
+static gboolean
+searchflags[3];
+static gpointer
+searchbits[8];
 
-enum isrch {
-	SI_BAR = 0,
-	SI_UP,
-	SI_DOWN,
-	SI_ENTRY,
-	SI_LABEL,
-	SI_ALL,
+enum
+isrch {
+	SI_REGEX,
 	SI_CASE,
-	SI_REGEX
+	SI_ALL,
+	SI_LABEL,
+	SI_ENTRY,
+	SI_DOWN,
+	SI_UP,
+	SI_BAR
 };
-
-static gpointer searchopts[8];
 
 static void
 create_menu_item (GMenu *menu,
@@ -77,13 +85,16 @@ cb_copy (GSimpleAction *simple, GVariant *parameter, gpointer stck) {
 
 static void
 example_destroy (GtkWidget *win, gpointer app) {
+	g_settings_sync ();
+	g_object_unref (settings);
 	g_application_quit (G_APPLICATION (app));
 }
 
 
 static void
-cb_quit (GSimpleAction *simple, GVariant *parameter, gpointer app) {
-	example_destroy (NULL, app);
+cb_quit (GSimpleAction *simple, GVariant *parameter, gpointer win) {
+	GtkApplication *app = gtk_window_get_application (win);
+	example_destroy (win, app);
 }
 
 
@@ -139,9 +150,9 @@ static void
 cb_find (GSimpleAction *simple, GVariant *parameter, gpointer stck) {
 	gboolean tog = TRUE;
 
-	if (gtk_search_bar_get_search_mode (searchopts[SI_BAR]))
+	if (gtk_search_bar_get_search_mode (searchbits[SI_BAR]))
 		tog = FALSE;
-	gtk_search_bar_set_search_mode (searchopts[SI_BAR], tog);
+	gtk_search_bar_set_search_mode (searchbits[SI_BAR], tog);
 }
 
 static void
@@ -151,29 +162,49 @@ run_search (GtkSearchEntry *entry, gpointer stck) {
 }
 
 static void
+cb_toggled (GtkToggleButton *togged, gpointer stack) {
+	gboolean tmp = gtk_toggle_button_get_active (searchbits[SI_REGEX]);
+	g_settings_set_boolean (settings, "text-search-regexp", tmp);
+	searchflags[SI_REGEX] = tmp;
+}
+
+static void
 create_searchbar (GtkWidget *bar, GtkWidget *stack) {
 	GtkWidget *bx = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
 	GtkBox *box = GTK_BOX (bx);
-	searchopts[SI_BAR]   = bar;
-	searchopts[SI_UP]    = gtk_button_new_from_icon_name ("go-up", GTK_ICON_SIZE_SMALL_TOOLBAR);
-	searchopts[SI_DOWN]  = gtk_button_new_from_icon_name ("go-down", GTK_ICON_SIZE_SMALL_TOOLBAR);
-	searchopts[SI_ENTRY] = gtk_search_entry_new ();
-	searchopts[SI_ALL]   = gtk_toggle_button_new_with_label ("All");
-	searchopts[SI_CASE]  = gtk_toggle_button_new_with_label ("a=A"); // a≠A
-	searchopts[SI_REGEX] = gtk_toggle_button_new_with_label (".*");
+	searchbits[SI_BAR]   = bar;
+	searchbits[SI_UP]    = gtk_button_new_from_icon_name ("go-up", GTK_ICON_SIZE_SMALL_TOOLBAR);
+	searchbits[SI_DOWN]  = gtk_button_new_from_icon_name ("go-down", GTK_ICON_SIZE_SMALL_TOOLBAR);
+	searchbits[SI_ENTRY] = gtk_search_entry_new ();
+	searchbits[SI_ALL]   = gtk_toggle_button_new_with_label ("All");
+	searchbits[SI_CASE]  = gtk_toggle_button_new_with_label ("a=A"); // a≠A
+	searchbits[SI_REGEX] = gtk_toggle_button_new_with_label (".*");
 
 	gtk_container_add (GTK_CONTAINER (bar), bx);
-	gtk_search_bar_connect_entry (GTK_SEARCH_BAR (bar), GTK_ENTRY (searchopts[SI_ENTRY]));
+	gtk_search_bar_connect_entry (GTK_SEARCH_BAR (bar), GTK_ENTRY (searchbits[SI_ENTRY]));
 	gtk_search_bar_set_show_close_button (GTK_SEARCH_BAR (bar), TRUE);
-	gtk_box_pack_start (box, searchopts[SI_UP],    FALSE, FALSE, 0);
-	gtk_box_pack_start (box, searchopts[SI_DOWN],  FALSE, FALSE, 0);
-	gtk_box_pack_start (box, searchopts[SI_ENTRY],  TRUE,  TRUE, 0);
-	gtk_box_pack_start (box, searchopts[SI_ALL],   FALSE, FALSE, 0);
-	gtk_box_pack_start (box, searchopts[SI_CASE],  FALSE, FALSE, 0);
-	gtk_box_pack_start (box, searchopts[SI_REGEX], FALSE, FALSE, 0);
+	gtk_box_pack_start (box, searchbits[SI_UP],    FALSE, FALSE, 0);
+	gtk_box_pack_start (box, searchbits[SI_DOWN],  FALSE, FALSE, 0);
+	gtk_box_pack_start (box, searchbits[SI_ENTRY],  TRUE,  TRUE, 0);
+	gtk_box_pack_start (box, searchbits[SI_ALL],   FALSE, FALSE, 0);
+	gtk_box_pack_start (box, searchbits[SI_CASE],  FALSE, FALSE, 0);
+	gtk_box_pack_start (box, searchbits[SI_REGEX], FALSE, FALSE, 0);
 
-	g_signal_connect (searchopts[SI_ENTRY], "search-changed", G_CALLBACK (run_search), stack);
+	g_signal_connect (searchbits[SI_ENTRY], "search-changed", G_CALLBACK (run_search), stack);
+	g_signal_connect (searchbits[SI_REGEX], "toggled",        G_CALLBACK (cb_toggled), stack);
+	gboolean tmp = g_settings_get_boolean (settings, "text-search-regexp");
+	gtk_toggle_button_set_active (searchbits[SI_REGEX], tmp);
+	searchflags[SI_REGEX] = tmp;
+
+
+
 /*
+searchflags[4];
+
+// stamp-text
+// stamp-text-format
+// text-search-regexp
+
 gtk_label_set_selectable (, false)
 gtk_label_new (NULL);
 gtk_label_set_width_chars (, 9) [10 of 102]
@@ -215,6 +246,8 @@ example_activated (GtkApplication *app, gpointer user_data) {
 	GtkWidget *mbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
 	gtk_container_add (GTK_CONTAINER (win), mbox);
 
+	settings = g_settings_new("com.github.example");
+
 	GMenu *mmenu = g_menu_new ();
 	GMenu *smenu = g_menu_new ();
 	create_menu_item (smenu, "_Copy",	"app.copy",	NULL,	"<ctrl>c",	NULL);
@@ -235,7 +268,7 @@ example_activated (GtkApplication *app, gpointer user_data) {
 	gtk_box_pack_start (GTK_BOX (mbox), stack,  TRUE,  TRUE, 0);
 	gtk_box_pack_start (GTK_BOX (mbox),  sbar, FALSE, FALSE, 0);
 
-	const GActionEntry acts[] = {
+	const GActionEntry wacts[] = {
 		{"quit", cb_quit, NULL, NULL, NULL, {0, 0, 0}},
 	};
 	const GActionEntry sacts[] = {
@@ -245,7 +278,7 @@ example_activated (GtkApplication *app, gpointer user_data) {
 		{"find", cb_find, NULL, NULL, NULL, {0, 0, 0}},
 	};
 
-	g_action_map_add_action_entries (G_ACTION_MAP (app),  acts, G_N_ELEMENTS  (acts), app);
+	g_action_map_add_action_entries (G_ACTION_MAP (app), wacts, G_N_ELEMENTS (wacts), win);
 	g_action_map_add_action_entries (G_ACTION_MAP (app), sacts, G_N_ELEMENTS (sacts), stack);
 
 	XcChatView *xccv1 = (xc_chat_view_new ());
@@ -255,10 +288,10 @@ example_activated (GtkApplication *app, gpointer user_data) {
 
 	gtk_widget_show_all (win);
 /*
-	xc_chat_view_set_font (xccv1, "Arimo 12");
-	xc_chat_view_set_scrollback_file (xccv1, "rrr");
-	xc_chat_view_set_scrollback_file (xccv1, "foo/rrr");
+	xc_chat_view_set_scrollback_file (xccv3, "rrr");
+	xc_chat_view_set_scrollback_file (xccv3, "foo/rrr");
 	xc_chat_view_set_background (xccv1, "/home/peter/Pictures/tile_5020.png");
+	xc_chat_view_set_font (xccv1, "Arimo 12");
 */
 	xc_chat_view_set_scrollback_file (xccv1, "text1");
 	xc_chat_view_set_scrollback_file (xccv2, "text2");
