@@ -228,6 +228,11 @@ Or just int func return?
 */
 }
 
+static void
+cb_wrap (GSimpleAction *simple, GVariant *parameter, gpointer stck) {
+	XcChatView *xccv = get_active_xccv (GTK_STACK (stck));
+	xc_chat_view_set_wordwrap (xccv, TRUE);
+}
 
 /* static void
 example_started (GtkApplication *app, gpointer user_data) {
@@ -251,7 +256,7 @@ example_activated (GtkApplication *app, gpointer user_data) {
 	GMenu *mmenu = g_menu_new ();
 	GMenu *smenu = g_menu_new ();
 	create_menu_item (smenu, "_Copy",	"app.copy",	NULL,	"<ctrl>c",	NULL);
-	create_menu_item (smenu, "_Word Wrap",	"app.wrap",	NULL,	NULL,		NULL);
+	create_menu_item (smenu, "_Word Wrap",	"app.wrap",	NULL,	"<ctrl><shift>w", "wrapped");
 	create_menu_item (smenu, "_Find",	"app.find",	NULL,	"<ctrl>f",	NULL);
 	create_menu_item (smenu, "Page _Up",	"app.pgup",	NULL,	"<ctrl>Prior",	NULL);
 	create_menu_item (smenu, "Page _Down",	"app.pgdn",	NULL,	"<ctrl>Next",	NULL);
@@ -273,6 +278,7 @@ example_activated (GtkApplication *app, gpointer user_data) {
 	};
 	const GActionEntry sacts[] = {
 		{"copy", cb_copy, NULL, NULL, NULL, {0, 0, 0}},
+		{"wrap", cb_wrap, NULL, NULL, NULL, {0, 0, 0}},
 		{"pgup", cb_pgup, NULL, NULL, NULL, {0, 0, 0}},
 		{"pgdn", cb_pgdn, NULL, NULL, NULL, {0, 0, 0}},
 		{"find", cb_find, NULL, NULL, NULL, {0, 0, 0}},

@@ -10,10 +10,14 @@
 #include "xcchatview.h"
 #endif
 
+extern GSettings *settings;
+
 enum xc_chat_view_properties {
-    XCP_DTFORMAT = 1,
-    XCP_COUNT
+    PROP_DTFORMAT = 1,
+    PROP_COUNT
 };
+
+static GParamSpec *xcproperties[PROP_COUNT] = { NULL, };
 
 /* static func declarations */
 static void	cell_func_dtime (	GtkTreeViewColumn	*tree_column,
@@ -24,8 +28,10 @@ static void	cell_func_dtime (	GtkTreeViewColumn	*tree_column,
 static void	xc_chat_view_init (	XcChatView		*xccv );
 static void	xc_chat_view_class_init	(XcChatViewClass	*class );
 static void	xc_chat_view_dispose (	GObject			*object );
-//static void	xc_chat_view_set_property (GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec);
-//static void	xc_chat_view_get_property (GObject *object, guint prop_id, GValue *value, GParamSpec *pspec);
+static void	xc_chat_view_set_property (GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec);
+static void	xc_chat_view_get_property (GObject *object, guint prop_id, GValue *value, GParamSpec *pspec);
+static void	load_scrollback_finish (GObject *sourceobject, GAsyncResult *result, gpointer userdata);
+static void	load_scrollback_run (GTask *task, gpointer sobj, gpointer ud_file, GCancellable *cancellable);
 
 G_DEFINE_TYPE(XcChatView, xc_chat_view, G_TYPE_OBJECT)
 
@@ -43,9 +49,7 @@ static void
 xc_chat_view_init (XcChatView *xccv)
 {
   /* initialisation goes here */
-  xccv->dtformat = g_strdup ("%F");
-  //g_object_get (xccv, "stamp-text-format", &xccv->dtformat, NULL);
-  //g_print ("%s\n", xccv->dtformat);
+
   xccv->cell_td = gtk_cell_renderer_text_new ();
   xccv->cell_hn = gtk_cell_renderer_text_new ();
   xccv->cell_ms = gtk_cell_renderer_text_new ();
@@ -58,6 +62,8 @@ xc_chat_view_init (XcChatView *xccv)
 
   xccv->clippy = gtk_clipboard_get (GDK_SELECTION_CLIPBOARD);
   xccv->select = gtk_tree_view_get_selection (xccv->tview);
+
+  //xccv->dtformat = g_strdup ("%F");
 
   g_object_ref_sink (xccv->cell_td);
   g_object_ref_sink (xccv->cell_hn);
@@ -73,11 +79,13 @@ xc_chat_view_init (XcChatView *xccv)
   gtk_tree_view_set_headers_visible (xccv->tview, FALSE);
 
   gtk_tree_view_insert_column_with_data_func  (xccv->tview, TVC_TIMED,       "Date", xccv->cell_td,
-						cell_func_dtime, xccv->dtformat, NULL);
+						cell_func_dtime, xccv, NULL);
   gtk_tree_view_insert_column_with_attributes (xccv->tview, TVC_HANDLE,    "Handle", xccv->cell_hn, "markup", SFS_HANDLE, NULL);
   gtk_tree_view_insert_column_with_attributes (xccv->tview, TVC_MESSAGE, "Messages", xccv->cell_ms, "markup", SFS_MESSAG, NULL);
   gtk_tree_selection_set_mode (xccv->select, GTK_SELECTION_MULTIPLE);
   gtk_tree_view_set_enable_search (xccv->tview, FALSE);
+
+  g_settings_bind (settings, "stamp-text-format", xccv, "stamp-text-format", G_SETTINGS_BIND_GET);
 }
 
 
@@ -88,22 +96,53 @@ xc_chat_view_class_init (XcChatViewClass *klass)
 
   /* virtual function overrides go here */
   gobject_class->dispose = xc_chat_view_dispose;
-/*
   gobject_class->get_property = xc_chat_view_get_property;
   gobject_class->set_property = xc_chat_view_set_property;
-*/
+
   /* property and signal definitions go here */
-/*
-  GParamSpec *properties[XCP_COUNT] = { NULL };
-  properties[XCP_DTFORMAT] = g_param_spec_string (
+  xcproperties[PROP_DTFORMAT] = g_param_spec_string (
     "stamp-text-format",			// name
     "Timestamp format",				// nickname
     "See the strftime manpage for details.",	// description
-    "%D",					// Default value
+    "%I%M%S",					// Default value
     G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_properties (gobject_class, XCP_COUNT, properties);
-*/
+  g_object_class_install_properties (gobject_class, PROP_COUNT, xcproperties);
+}
+
+
+static void
+xc_chat_view_set_property (GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec) {
+  XcChatView *xccv = XC_CHAT_VIEW (object);
+
+  switch (prop_id) {
+    case PROP_DTFORMAT:
+      if (xccv->dtformat)
+        g_free (xccv->dtformat);
+      xccv->dtformat = g_value_dup_string (value);
+      //g_assert (GTK_IS_TREE_VIEW (xccv->tview));
+      //gtk_tree_view_column_queue_resize (GTK_TREE_VIEW_COLUMN (gtk_tree_view_get_column (GTK_TREE_VIEW (xccv->tview), TVC_TIMED)));
+      gtk_tree_view_column_queue_resize (gtk_tree_view_get_column (xccv->tview, TVC_TIMED));
+      break;
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (xccv, prop_id, pspec);
+      break;
+  }
+}
+
+
+static void
+xc_chat_view_get_property (GObject *object, guint prop_id, GValue *value, GParamSpec *pspec) {
+  XcChatView *xccv = XC_CHAT_VIEW (object);
+
+  switch (prop_id) {
+    case PROP_DTFORMAT:
+      g_value_set_string (value, xccv->dtformat);
+      break;
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+      break;
+  }
 }
 
 
@@ -126,48 +165,16 @@ xc_chat_view_dispose (GObject *object)
   G_OBJECT_CLASS (xc_chat_view_parent_class)->dispose (object);
 }
 
-/*
-static void
-xc_chat_view_set_property (GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec) {
-  XcChatView *xccv = XC_CHAT_VIEW (object);
-
-  switch (prop_id) {
-    case XCP_DTFORMAT:
-      if (xccv->dtformat)
-        g_free (xccv->dtformat);
-      xccv->dtformat = g_value_dup_string (value);
-      break;
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
-      break;
-  }
-}
-
-
-static void
-xc_chat_view_get_property (GObject *object, guint prop_id, GValue *value, GParamSpec *pspec) {
-  XcChatView *xccv = XC_CHAT_VIEW (object);
-
-  switch (prop_id) {
-    case XCP_DTFORMAT:
-      g_value_set_string (value, xccv->dtformat);
-      break;
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
-      break;
-  }
-}
-*/
 
 static void
 cell_func_dtime (	GtkTreeViewColumn	*tree_column,
 			GtkCellRenderer	*cell,
 			GtkTreeModel	*tree_model,
 			GtkTreeIter	*iter,
-			gpointer	dtformat)
+			gpointer	xccvah)
 {
+  XcChatView *xccv = xccvah;
   GDateTime *dtime;
-  gchar *result;
 
   gtk_tree_model_get (tree_model, iter, SFS_GDTIME, &dtime, -1);
   if (! dtime)
@@ -176,11 +183,9 @@ cell_func_dtime (	GtkTreeViewColumn	*tree_column,
     return;
   }
 
-  result = g_date_time_format (dtime, dtformat);
-  g_object_set (cell, "markup", result, NULL);
+  g_object_set (cell, "markup", g_date_time_format (dtime, xccv->dtformat), NULL);
 
   g_date_time_unref (dtime);
-  g_free (result);
 }
 
 
