@@ -148,11 +148,8 @@ create_tabs (XcChatView *xccv, GtkWidget *stack, char *name) {
 
 static void
 cb_find (GSimpleAction *simple, GVariant *parameter, gpointer stck) {
-	gboolean tog = TRUE;
-
-	if (gtk_search_bar_get_search_mode (searchbits[SI_BAR]))
-		tog = FALSE;
-	gtk_search_bar_set_search_mode (searchbits[SI_BAR], tog);
+	gtk_search_bar_set_search_mode (searchbits[SI_BAR],
+		! gtk_search_bar_get_search_mode (searchbits[SI_BAR]) );
 }
 
 static void
@@ -163,9 +160,17 @@ run_search (GtkSearchEntry *entry, gpointer stck) {
 
 static void
 cb_toggled (GtkToggleButton *togged, gpointer stack) {
-	gboolean tmp = gtk_toggle_button_get_active (searchbits[SI_REGEX]);
-	g_settings_set_boolean (settings, "text-search-regexp", tmp);
-	searchflags[SI_REGEX] = tmp;
+	short c;
+
+	for (c = 0; c < 3 ; c++)
+		if (togged == searchbits[c])
+			break;
+	if (c == 3) {
+		g_print ("Error processing search flags: line %d, function %s.\n", ((__LINE__)-2), __func__);
+		return;
+	}
+	searchflags[c] = gtk_toggle_button_get_active (searchbits[c]);
+	// TODO: alert stack so it can change search.  How to know search was sent?
 }
 
 static void
@@ -173,8 +178,8 @@ create_searchbar (GtkWidget *bar, GtkWidget *stack) {
 	GtkWidget *bx = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
 	GtkBox *box = GTK_BOX (bx);
 	searchbits[SI_BAR]   = bar;
-	searchbits[SI_UP]    = gtk_button_new_from_icon_name ("go-up", GTK_ICON_SIZE_SMALL_TOOLBAR);
-	searchbits[SI_DOWN]  = gtk_button_new_from_icon_name ("go-down", GTK_ICON_SIZE_SMALL_TOOLBAR);
+	searchbits[SI_UP]    = gtk_button_new_from_icon_name ("go-previous", GTK_ICON_SIZE_SMALL_TOOLBAR);
+	searchbits[SI_DOWN]  = gtk_button_new_from_icon_name ("go-next", GTK_ICON_SIZE_SMALL_TOOLBAR);
 	searchbits[SI_ENTRY] = gtk_search_entry_new ();
 	searchbits[SI_ALL]   = gtk_toggle_button_new_with_label ("All");
 	searchbits[SI_CASE]  = gtk_toggle_button_new_with_label ("a=A"); // a≠A
@@ -183,19 +188,22 @@ create_searchbar (GtkWidget *bar, GtkWidget *stack) {
 	gtk_container_add (GTK_CONTAINER (bar), bx);
 	gtk_search_bar_connect_entry (GTK_SEARCH_BAR (bar), GTK_ENTRY (searchbits[SI_ENTRY]));
 	gtk_search_bar_set_show_close_button (GTK_SEARCH_BAR (bar), TRUE);
-	gtk_box_pack_start (box, searchbits[SI_UP],    FALSE, FALSE, 0);
-	gtk_box_pack_start (box, searchbits[SI_DOWN],  FALSE, FALSE, 0);
-	gtk_box_pack_start (box, searchbits[SI_ENTRY],  TRUE,  TRUE, 0);
-	gtk_box_pack_start (box, searchbits[SI_ALL],   FALSE, FALSE, 0);
-	gtk_box_pack_start (box, searchbits[SI_CASE],  FALSE, FALSE, 0);
-	gtk_box_pack_start (box, searchbits[SI_REGEX], FALSE, FALSE, 0);
+	gtk_box_pack_start (box, searchbits[SI_UP],	FALSE, FALSE, 0);
+	gtk_box_pack_start (box, searchbits[SI_DOWN],	FALSE, FALSE, 0);
+	gtk_box_pack_start (box, searchbits[SI_ENTRY],	TRUE,  TRUE,  0);
+	gtk_box_pack_start (box, searchbits[SI_ALL],	FALSE, FALSE, 0);
+	gtk_box_pack_start (box, searchbits[SI_CASE],	FALSE, FALSE, 0);
+	gtk_box_pack_start (box, searchbits[SI_REGEX],	FALSE, FALSE, 0);
 
-	g_signal_connect (searchbits[SI_ENTRY], "search-changed", G_CALLBACK (run_search), stack);
-	g_signal_connect (searchbits[SI_REGEX], "toggled",        G_CALLBACK (cb_toggled), stack);
-	gboolean tmp = g_settings_get_boolean (settings, "text-search-regexp");
-	gtk_toggle_button_set_active (searchbits[SI_REGEX], tmp);
-	searchflags[SI_REGEX] = tmp;
+	g_settings_bind (settings, "text-search-highlight-all",	searchbits[SI_ALL],	"active", G_SETTINGS_BIND_DEFAULT);
+	g_settings_bind (settings, "text-search-case-match",	searchbits[SI_CASE],	"active", G_SETTINGS_BIND_DEFAULT);
+	g_settings_bind (settings, "text-search-regexp",	searchbits[SI_REGEX],	"active", G_SETTINGS_BIND_DEFAULT);
+	g_signal_connect (searchbits[SI_ENTRY],	"search-changed", G_CALLBACK (run_search), stack);
+	g_signal_connect (searchbits[SI_ALL],	"toggled",	G_CALLBACK (cb_toggled), stack);
+	g_signal_connect (searchbits[SI_CASE],	"toggled",	G_CALLBACK (cb_toggled), stack);
+	g_signal_connect (searchbits[SI_REGEX],	"toggled",	G_CALLBACK (cb_toggled), stack);
 
+	cb_toggled (searchbits[SI_REGEX], stack);
 
 
 /*
@@ -203,7 +211,6 @@ searchflags[4];
 
 // stamp-text
 // stamp-text-format
-// text-search-regexp
 
 gtk_label_set_selectable (, false)
 gtk_label_new (NULL);
@@ -234,11 +241,10 @@ cb_wrap (GSimpleAction *simple, GVariant *parameter, gpointer stack) {
 	GVariant *state = g_action_get_state (G_ACTION (simple));
 	gboolean flag = g_variant_get_boolean (state);
 	g_variant_unref (state);
-	g_print("Toggle Action Callback: State = %s\n", flag ? "TRUE" : "FALSE");
 
 	//gboolean button = g_variant_get_boolean (parameter);
 	//g_simple_action_set_state (simple, parameter);
-	g_simple_action_set_state(simple, g_variant_new_boolean(!flag));
+	g_simple_action_set_state (simple, g_variant_new_boolean (!flag));
 	xc_chat_view_set_wordwrap (xccv, !flag);
 // state is in gaction
 }
@@ -246,7 +252,7 @@ cb_wrap (GSimpleAction *simple, GVariant *parameter, gpointer stack) {
 /* static void
 example_started (GtkApplication *app, gpointer user_data) {
 	if (gtk_application_prefers_app_menu (app))
-		gtk_application_set_app_menu (app, G_MENU_MODEL(menu));
+		gtk_application_set_app_menu (app, G_MENU_MODEL (menu));
 } */
 
 static void
@@ -260,7 +266,7 @@ example_activated (GtkApplication *app, gpointer user_data) {
 	GtkWidget *mbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
 	gtk_container_add (GTK_CONTAINER (win), mbox);
 
-	settings = g_settings_new("com.github.example");
+	settings = g_settings_new ("com.github.example");
 
 	GMenu *mmenu = g_menu_new ();
 	GMenu *smenu = g_menu_new ();

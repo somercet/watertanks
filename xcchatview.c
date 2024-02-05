@@ -49,7 +49,6 @@ static void
 xc_chat_view_init (XcChatView *xccv)
 {
   /* initialisation goes here */
-
   xccv->cell_td = gtk_cell_renderer_text_new ();
   xccv->cell_hn = gtk_cell_renderer_text_new ();
   xccv->cell_ms = gtk_cell_renderer_text_new ();
@@ -59,11 +58,8 @@ xc_chat_view_init (XcChatView *xccv)
 		G_TYPE_STRING,
 		G_TYPE_DATE_TIME);
   xccv->tview = GTK_TREE_VIEW (gtk_tree_view_new_with_model (GTK_TREE_MODEL (xccv->store)));
-
   xccv->clippy = gtk_clipboard_get (GDK_SELECTION_CLIPBOARD);
   xccv->select = gtk_tree_view_get_selection (xccv->tview);
-
-  //xccv->dtformat = g_strdup ("%F");
 
   g_object_ref_sink (xccv->cell_td);
   g_object_ref_sink (xccv->cell_hn);
@@ -85,6 +81,7 @@ xc_chat_view_init (XcChatView *xccv)
   gtk_tree_selection_set_mode (xccv->select, GTK_SELECTION_MULTIPLE);
   gtk_tree_view_set_enable_search (xccv->tview, FALSE);
 
+  //xccv->dtformat = g_strdup ("%F");
   g_settings_bind (settings, "stamp-text-format", xccv, "stamp-text-format", G_SETTINGS_BIND_GET);
 }
 
@@ -120,8 +117,6 @@ xc_chat_view_set_property (GObject *object, guint prop_id, const GValue *value, 
       if (xccv->dtformat)
         g_free (xccv->dtformat);
       xccv->dtformat = g_value_dup_string (value);
-      //g_assert (GTK_IS_TREE_VIEW (xccv->tview));
-      //gtk_tree_view_column_queue_resize (GTK_TREE_VIEW_COLUMN (gtk_tree_view_get_column (GTK_TREE_VIEW (xccv->tview), TVC_TIMED)));
       gtk_tree_view_column_queue_resize (gtk_tree_view_get_column (xccv->tview, TVC_TIMED));
       break;
     default:

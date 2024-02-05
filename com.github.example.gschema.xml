@@ -19,15 +19,23 @@
       <default>'%H:%M:%S'</default>
       <summary>Timestamp format</summary>
       <description>See the strftime manpage for details.</description>
-      <!-- See the strftime MSDN article for details -->
+      <!-- See the strftime MSDN article for details (3) -->
+    </key>
+    <key name="text-search-case-match" type="b">
+      <default>false</default>
+      <summary>Case-sensitive search</summary>
+      <description>Perform a case-sensitive search.</description>
+    </key>
+    <key name="text-search-highlight-all" type="b">
+      <default>false</default>
+      <summary>Highlight search results</summary>
+      <description>Highlight all occurrences, and underline the current occurrence.</description>
     </key>
     <key name="text-search-regexp" type="b">
       <default>false</default>
       <summary>Enable regular expression searches</summary>
       <description>Regard search string as a regular expression.</description>
     </key>
-
-
 
     <!--
     <key name="" type="">
