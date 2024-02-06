@@ -29,8 +29,8 @@ isrch {
 	SI_ALL,
 	SI_LABEL,
 	SI_ENTRY,
-	SI_DOWN,
-	SI_UP,
+	SI_NEXT,
+	SI_PREV,
 	SI_BAR
 };
 
@@ -153,9 +153,26 @@ cb_find (GSimpleAction *simple, GVariant *parameter, gpointer stck) {
 }
 
 static void
-run_search (GtkSearchEntry *entry, gpointer stck) {
-	XcChatView *xccv = get_active_xccv (GTK_STACK (stck));
-	xc_chat_view_run_search (xccv, gtk_entry_get_text (GTK_ENTRY (entry)));
+run_search (GtkSearchEntry *entry, gpointer stack) {
+	XcChatView *xccv = get_active_xccv (GTK_STACK (stack));
+	xc_chat_view_run_search (xccv, gtk_entry_get_text (GTK_ENTRY (entry)),
+		searchflags[SI_ALL], searchflags[SI_CASE], searchflags[SI_REGEX]);
+}
+
+static void
+next_search (GtkButton *togged, gpointer *stack, gboolean direction) {
+	XcChatView *xccv = get_active_xccv (GTK_STACK (stack));
+	xc_chat_view_next_search (xccv, direction);
+}
+
+static void
+cb_next (GtkButton *togged, gpointer stack) {
+	next_search (togged, stack, TRUE);
+}
+
+static void
+cb_prev (GtkButton *togged, gpointer stack) {
+	next_search (togged, stack, FALSE);
 }
 
 static void
@@ -166,11 +183,11 @@ cb_toggled (GtkToggleButton *togged, gpointer stack) {
 		if (togged == searchbits[c])
 			break;
 	if (c == 3) {
-		g_print ("Error processing search flags: line %d, function %s.\n", ((__LINE__)-2), __func__);
+		g_print ("Error processing search flags: line %d, %s().\n", ((__LINE__)-2), __func__);
 		return;
 	}
 	searchflags[c] = gtk_toggle_button_get_active (searchbits[c]);
-	// TODO: alert stack so it can change search.  How to know search was sent?
+	run_search (searchbits[SI_ENTRY], stack);
 }
 
 static void
@@ -178,8 +195,8 @@ create_searchbar (GtkWidget *bar, GtkWidget *stack) {
 	GtkWidget *bx = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
 	GtkBox *box = GTK_BOX (bx);
 	searchbits[SI_BAR]   = bar;
-	searchbits[SI_UP]    = gtk_button_new_from_icon_name ("go-previous", GTK_ICON_SIZE_SMALL_TOOLBAR);
-	searchbits[SI_DOWN]  = gtk_button_new_from_icon_name ("go-next", GTK_ICON_SIZE_SMALL_TOOLBAR);
+	searchbits[SI_PREV]  = gtk_button_new_from_icon_name ("go-previous", GTK_ICON_SIZE_SMALL_TOOLBAR);
+	searchbits[SI_NEXT]  = gtk_button_new_from_icon_name ("go-next", GTK_ICON_SIZE_SMALL_TOOLBAR);
 	searchbits[SI_ENTRY] = gtk_search_entry_new ();
 	searchbits[SI_ALL]   = gtk_toggle_button_new_with_label ("All");
 	searchbits[SI_CASE]  = gtk_toggle_button_new_with_label ("a=A"); // a≠A
@@ -188,8 +205,8 @@ create_searchbar (GtkWidget *bar, GtkWidget *stack) {
 	gtk_container_add (GTK_CONTAINER (bar), bx);
 	gtk_search_bar_connect_entry (GTK_SEARCH_BAR (bar), GTK_ENTRY (searchbits[SI_ENTRY]));
 	gtk_search_bar_set_show_close_button (GTK_SEARCH_BAR (bar), TRUE);
-	gtk_box_pack_start (box, searchbits[SI_UP],	FALSE, FALSE, 0);
-	gtk_box_pack_start (box, searchbits[SI_DOWN],	FALSE, FALSE, 0);
+	gtk_box_pack_start (box, searchbits[SI_PREV],	FALSE, FALSE, 0);
+	gtk_box_pack_start (box, searchbits[SI_NEXT],	FALSE, FALSE, 0);
 	gtk_box_pack_start (box, searchbits[SI_ENTRY],	TRUE,  TRUE,  0);
 	gtk_box_pack_start (box, searchbits[SI_ALL],	FALSE, FALSE, 0);
 	gtk_box_pack_start (box, searchbits[SI_CASE],	FALSE, FALSE, 0);
@@ -199,11 +216,14 @@ create_searchbar (GtkWidget *bar, GtkWidget *stack) {
 	g_settings_bind (settings, "text-search-case-match",	searchbits[SI_CASE],	"active", G_SETTINGS_BIND_DEFAULT);
 	g_settings_bind (settings, "text-search-regexp",	searchbits[SI_REGEX],	"active", G_SETTINGS_BIND_DEFAULT);
 	g_signal_connect (searchbits[SI_ENTRY],	"search-changed", G_CALLBACK (run_search), stack);
+	g_signal_connect (searchbits[SI_ENTRY],	"activate",	G_CALLBACK (run_search), stack);
 	g_signal_connect (searchbits[SI_ALL],	"toggled",	G_CALLBACK (cb_toggled), stack);
 	g_signal_connect (searchbits[SI_CASE],	"toggled",	G_CALLBACK (cb_toggled), stack);
 	g_signal_connect (searchbits[SI_REGEX],	"toggled",	G_CALLBACK (cb_toggled), stack);
+	g_signal_connect (searchbits[SI_PREV],	"clicked",	G_CALLBACK (cb_prev), stack);
+	g_signal_connect (searchbits[SI_NEXT],	"clicked",	G_CALLBACK (cb_next), stack);
 
-	cb_toggled (searchbits[SI_REGEX], stack);
+	//cb_toggled (searchbits[SI_REGEX], stack);
 
 
 /*

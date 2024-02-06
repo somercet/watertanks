@@ -547,10 +547,16 @@ xc_chat_view_append0 (	XcChatView	*xccv,
 }
 
 void
-xc_chat_view_run_search (XcChatView *xccv, const gchar *search_text) {
+xc_chat_view_run_search (XcChatView *xccv, const gchar *text, gboolean all, gboolean icase, gboolean regex) {
+	//g_print ("%s %d %d %d\n", text, all, icase, regex);
 	return;
 }
 
+/* false, back; true, forward */
+void
+xc_chat_view_next_search (XcChatView *xccv, gboolean direction) {
+	return;
+}
 
 /*
 int xc_chat_view_lastlog (xtext_buffer *out, xtext_buffer *search_area)
