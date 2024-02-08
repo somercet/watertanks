@@ -546,16 +546,91 @@ xc_chat_view_append0 (	XcChatView	*xccv,
     -1);
 }
 
+/*
+struct search_results {
+  gchar *search_text;
+  GList *search_paths;
+  GList *search_current;
+};
+
+static void
+search_columns () {
+
+}
+*/
+
 void
-xc_chat_view_run_search (XcChatView *xccv, const gchar *text, gboolean all, gboolean icase, gboolean regex) {
-	//g_print ("%s %d %d %d\n", text, all, icase, regex);
-	return;
+xc_chat_view_run_search (XcChatView *xccv, const gchar *stext, gboolean all, gboolean icase, gboolean regex) {
+	GtkTreeModel *model = gtk_tree_view_get_model (xccv->tview);
+	GString *holder = g_string_new("");
+	GtkTreeIter iter;
+	gboolean valid;
+
+	xccv->search_current = NULL;
+	if (xccv->search_paths != NULL) {
+		g_list_free_full (xccv->search_paths, (GDestroyNotify) gtk_tree_path_free);
+		xccv->search_paths = NULL;
+	}
+
+	if (stext[0] == '\0')
+		return;
+
+	if (gtk_tree_model_get_iter_first (model, &iter)) {
+		do {
+			gchar *value;
+			for (int c = 0; c < TVC_TOTAL; c++) {
+				gtk_tree_model_get (model, &iter, c, &value, -1);
+				g_string_append_printf (holder, "%s%s", " ", value);
+			}
+			g_free (value);
+
+			if (g_strrstr (holder->str, stext)) {
+				GtkTreePath *path = gtk_tree_model_get_path (model, &iter);
+				xccv->search_paths = g_list_prepend (xccv->search_paths, path);
+			}
+
+			g_string_truncate(holder, 0);
+			valid = gtk_tree_model_iter_next(model, &iter);
+		} while (valid);
+		if (xccv->search_paths)
+			xc_chat_view_next_search (xccv, TRUE);
+		//gtk_tree_selection_select_iter (xccv->select, &iter);
+		//gtk_tree_view_scroll_to_cell (xccv->tview, gtk_tree_model_get_path (model, &iter), NULL, FALSE, 0, 0);
+	}
+	g_string_free (holder, TRUE);
+	return; // String not found
 }
 
-/* false, back; true, forward */
+/* false, down the window; true, up the window. The GList starts at the end. */
 void
 xc_chat_view_next_search (XcChatView *xccv, gboolean direction) {
-	return;
+	gboolean move = FALSE;
+
+	if (!xccv->search_paths)
+		return;
+
+	if (xccv->search_current)
+		move = TRUE;
+	else
+		xccv->search_current = xccv->search_paths; // new search
+
+	if (direction && move) {
+		if (xccv->search_current->prev == NULL)
+			return;
+		else
+			xccv->search_current = xccv->search_current->prev;
+	} else if (!direction && move) {
+		if (xccv->search_current->next == NULL)
+			return;
+		else
+			xccv->search_current = xccv->search_current->next;
+	}
+
+	if (xccv->search_current->data) {
+		gtk_tree_selection_unselect_all (xccv->select);
+		gtk_tree_selection_select_path (xccv->select, xccv->search_current->data);
+		gtk_tree_view_scroll_to_cell (xccv->tview, xccv->search_current->data, NULL, FALSE, 0, 0);
+	}
 }
 
 /*

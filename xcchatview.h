@@ -43,7 +43,8 @@ typedef enum marker_reset_reason_e {
 enum tvcolumns {
 	TVC_TIMED = 0,
 	TVC_HANDLE,
-	TVC_MESSAGE
+	TVC_MESSAGE,
+	TVC_TOTAL
 };
 
 enum storefs {
@@ -62,11 +63,16 @@ struct _XcChatView
   GtkTreeView	*tview;
   GtkListStore	*store;
   GtkClipboard	*clippy;
+  gchar		*search_text;
+  GList		*search_paths;
+  GList		*search_current;
+
   GtkTreeSelection	*select;
   GtkCellRenderer	*cell_td, *cell_hn, *cell_ms;
 
   gchar		*dtformat;
   gchar		*scrollback_filename;
+
   guint		max_lines;
   marker_reset_reason	marker_state;
   /* Private */
