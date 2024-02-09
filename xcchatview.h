@@ -73,7 +73,8 @@ struct _XcChatView
   gchar		*dtformat;
   gchar		*scrollback_filename;
 
-  guint		max_lines;
+  guint		lines_max;
+  guint		lines_current;
   marker_reset_reason	marker_state;
   /* Private */
 };
@@ -122,14 +123,14 @@ void	xc_chat_view_append_indent (	XcChatView	*xccv,
 // rawlog.c:	rawlog_clearbutton
 // void gtk_xtext_clear (xtext_buffer *buf, int lines);
 void	xc_chat_view_clear (	XcChatView	*xccv,
-				int		lines );
+				gint		lines );
 // fkeys.c	key_dialog_show
 // maingui.c	mg_update_xtext
 // rawlog.c	open_rawlog
 // textgui.c	pevent_dialog_show
 // int gtk_xtext_set_font (GtkXText *xtext, char *name);
 int xc_chat_view_set_font (	XcChatView	*xccv,
-				char		*name );
+				gchar		*name );
 // maingui.c	mg_update_xtext < mg_create_textarea < mg_create_center < mg_create_irctab
 // void gtk_xtext_set_wordwrap (GtkXText *xtext, gboolean word_wrap);
 void xc_chat_view_set_wordwrap (	XcChatView	*xccv,

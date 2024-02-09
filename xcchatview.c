@@ -215,15 +215,27 @@ xc_chat_view_append_indent (XcChatView *xccv,
     SFS_GDTIME, gdt,
     -1);
 
+  xccv->lines_current++;
+
   g_date_time_unref (gdt);
 }
 
 
-// TODO: lines <0 from bottom, 0 all, >0 from top
+// lines <0 from bottom, 0 all, >0 from top
 void
-xc_chat_view_clear (XcChatView	*xccv, int lines)
-{
-  gtk_list_store_clear (xccv->store);
+xc_chat_view_clear (XcChatView	*xccv, gint lines) {
+	GtkTreeIter iter;
+	gint c;
+
+	if (lines < 0)
+		;
+	else if (lines > 0) {
+		gtk_tree_model_get_iter_first (GTK_TREE_MODEL (xccv->store), &iter);
+		for (c = lines; c > 0; c--)
+			if (! gtk_list_store_remove (xccv->store, &iter))
+				g_print ("not deleted on %d of %d lines.\n", c, lines);
+	} else
+		gtk_list_store_clear (xccv->store);
 }
 
 
@@ -357,7 +369,7 @@ xc_chat_view_save (XcChatView *xccv, int fh)
 void
 xc_chat_view_set_max_lines (XcChatView *xccv, int max_lines)
 {
-  xccv->max_lines = (gint) max_lines;
+  xccv->lines_max = (gint) max_lines;
 }
 
 void
@@ -523,6 +535,8 @@ xc_chat_view_prepend0 (	XcChatView	*xccv,
     SFS_MESSAG, message,
     SFS_GDTIME, dtime,
     -1);
+
+  xccv->lines_current++;
 }
 
 
@@ -539,6 +553,8 @@ xc_chat_view_append0 (	XcChatView	*xccv,
     SFS_MESSAG, message,
     SFS_GDTIME, dtime,
     -1);
+
+  xccv->lines_current++;
 }
 
 /*
