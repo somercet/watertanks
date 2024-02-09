@@ -186,22 +186,30 @@ void xc_chat_view_save (	XcChatView	*xccv,
 // maingui.c	search_handle_event
 // textentry *gtk_xtext_search (GtkXText * xtext, const gchar *text, gtk_xtext_search_flags flags, GError **err);
 void xc_chat_view_run_search (	XcChatView	*xccv,
-				const gchar *search_text,
-				gboolean all,
-				gboolean icase,
-				gboolean regex );
+				const gchar	*search_text,
+				gboolean	all,
+				gboolean	icase,
+				gboolean	regex );
 
 void xc_chat_view_next_search (	XcChatView	*xccv,
 				gboolean	direction );
 
+void xc_chat_view_lastlog (	XcChatView	*xccv,
+				const gchar	*text,
+				XcChatView	*target );
+
+/*
+hexchat/src/common/outbound.c
+static void lastlog (session *sess, char *search, gtk_xtext_search_flags flags)
 
 // fe-gtk.c	fe_lastlog
 //int gtk_xtext_lastlog (xtext_buffer *out, xtext_buffer *search_area);
+*/
 
 
 
 void xc_chat_view_set_scrollback_file (	XcChatView *xccv,
-					gchar *filename);
+					gchar *filename );
 
 void		xc_chat_view_prepend0 (	XcChatView	*xccv,
 					GDateTime	*dtime,

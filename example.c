@@ -17,6 +17,8 @@ Xccvbit {
 	gpointer child;
 };
 
+static XcChatView *Lastlog = NULL;
+
 static gboolean
 searchflags[3];
 static gpointer
@@ -183,11 +185,23 @@ cb_toggled (GtkToggleButton *togged, gpointer stack) {
 		if (togged == searchbits[c])
 			break;
 	if (c == 3) {
-		g_print ("Error processing search flags: line %d, %s().\n", ((__LINE__)-2), __func__);
+		g_print ("Error processing search flags: line %d, %s().\n", __LINE__, __FILE__);
 		return;
 	}
 	searchflags[c] = gtk_toggle_button_get_active (searchbits[c]);
 	run_search (searchbits[SI_ENTRY], stack);
+}
+
+static void
+cb_lastlog (GtkButton *togged, gpointer stack) {
+	XcChatView *xccv = get_active_xccv (GTK_STACK (stack));
+
+	if (Lastlog == NULL) {
+		Lastlog = xc_chat_view_new ();
+		create_tabs (Lastlog, GTK_WIDGET (stack), "Lastlog");
+		gtk_widget_show_all (stack);
+	}
+	xc_chat_view_lastlog (xccv, gtk_entry_get_text (searchbits[SI_ENTRY]), Lastlog);
 }
 
 static void
@@ -202,9 +216,14 @@ create_searchbar (GtkWidget *bar, GtkWidget *stack) {
 	searchbits[SI_CASE]  = gtk_toggle_button_new_with_label ("a=A"); // a≠A
 	searchbits[SI_REGEX] = gtk_toggle_button_new_with_label (".*");
 
+	GtkWidget *lastlog = gtk_button_new_with_label ("Lastlog");
+
 	gtk_container_add (GTK_CONTAINER (bar), bx);
 	gtk_search_bar_connect_entry (GTK_SEARCH_BAR (bar), GTK_ENTRY (searchbits[SI_ENTRY]));
 	gtk_search_bar_set_show_close_button (GTK_SEARCH_BAR (bar), TRUE);
+
+	gtk_box_pack_start (box, lastlog, FALSE, FALSE, 0);
+
 	gtk_box_pack_start (box, searchbits[SI_PREV],	FALSE, FALSE, 0);
 	gtk_box_pack_start (box, searchbits[SI_NEXT],	FALSE, FALSE, 0);
 	gtk_box_pack_start (box, searchbits[SI_ENTRY],	TRUE,  TRUE,  0);
@@ -222,6 +241,8 @@ create_searchbar (GtkWidget *bar, GtkWidget *stack) {
 	g_signal_connect (searchbits[SI_REGEX],	"toggled",	G_CALLBACK (cb_toggled), stack);
 	g_signal_connect (searchbits[SI_PREV],	"clicked",	G_CALLBACK (cb_prev), stack);
 	g_signal_connect (searchbits[SI_NEXT],	"clicked",	G_CALLBACK (cb_next), stack);
+
+	g_signal_connect (lastlog, "clicked", G_CALLBACK (cb_lastlog), stack);
 
 	//cb_toggled (searchbits[SI_REGEX], stack);
 
@@ -256,17 +277,25 @@ Or just int func return?
 }
 
 static void
+cb_time (GSimpleAction *simple, GVariant *parameter, gpointer stack) {
+	XcChatView *xccv = get_active_xccv (GTK_STACK (stack));
+	GVariant *state = g_action_get_state (G_ACTION (simple));
+	gboolean flag = g_variant_get_boolean (state);
+	g_variant_unref (state);
+
+	g_simple_action_set_state (simple, g_variant_new_boolean (!flag));
+	xc_chat_view_set_time_stamp (xccv, !flag);
+}
+
+static void
 cb_wrap (GSimpleAction *simple, GVariant *parameter, gpointer stack) {
 	XcChatView *xccv = get_active_xccv (GTK_STACK (stack));
 	GVariant *state = g_action_get_state (G_ACTION (simple));
 	gboolean flag = g_variant_get_boolean (state);
 	g_variant_unref (state);
 
-	//gboolean button = g_variant_get_boolean (parameter);
-	//g_simple_action_set_state (simple, parameter);
 	g_simple_action_set_state (simple, g_variant_new_boolean (!flag));
 	xc_chat_view_set_wordwrap (xccv, !flag);
-// state is in gaction
 }
 
 /* static void
@@ -292,6 +321,7 @@ example_activated (GtkApplication *app, gpointer user_data) {
 	GMenu *smenu = g_menu_new ();
 	create_menu_item (smenu, "_Copy",	"app.copy",	NULL,	"<ctrl>c",	NULL);
 	create_menu_item (smenu, "_Word Wrap",	"app.wrap",	NULL,	"<ctrl><shift>w", NULL);
+	create_menu_item (smenu, "Show _Times",	"app.time",	NULL,	"<ctrl>t",	NULL);
 	create_menu_item (smenu, "_Find",	"app.find",	NULL,	"<ctrl>f",	NULL);
 	create_menu_item (smenu, "Page _Up",	"app.pgup",	NULL,	"<ctrl>Prior",	NULL);
 	create_menu_item (smenu, "Page _Down",	"app.pgdn",	NULL,	"<ctrl>Next",	NULL);
@@ -314,6 +344,7 @@ example_activated (GtkApplication *app, gpointer user_data) {
 	const GActionEntry sacts[] = {
 		{"copy", cb_copy, NULL,    NULL, NULL, {0, 0, 0}},
 		{"wrap", cb_wrap, NULL, "false", NULL, {0, 0, 0}},
+		{"time", cb_time, NULL,  "true", NULL, {0, 0, 0}},
 		{"pgup", cb_pgup, NULL,    NULL, NULL, {0, 0, 0}},
 		{"pgdn", cb_pgdn, NULL,    NULL, NULL, {0, 0, 0}},
 		{"find", cb_find, NULL,    NULL, NULL, {0, 0, 0}},
@@ -353,3 +384,7 @@ main (int argc, char *argv[]) {
 	return r;
 }
 
+/*
+g_print ("test %d: %s\n", __LINE__, __FILE__);
+__func__
+*/
