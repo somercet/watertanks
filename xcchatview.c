@@ -655,7 +655,7 @@ xc_chat_view_lastlog (XcChatView *xccv, const gchar *text, XcChatView *target) {
 			g_string_append_printf (hold, "%s %s", h, m);
 
 			if (g_strrstr (hold->str, text))
-				xc_chat_view_prepend0 (target, gd, h, m);
+				xc_chat_view_append0 (target, gd, h, m);
 			if (gd)
 				g_date_time_unref (gd);
 			g_free (h);
