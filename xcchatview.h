@@ -76,6 +76,7 @@ struct _XcChatView
   guint		lines_max;
   guint		lines_current;
   marker_reset_reason	marker_state;
+  gboolean	timestamps;
   /* Private */
 };
 

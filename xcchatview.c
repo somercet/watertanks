@@ -13,7 +13,8 @@
 extern GSettings *settings;
 
 enum xc_chat_view_properties {
-    PROP_DTFORMAT = 1,
+    PROP_STAMP_TEXT = 1,
+    PROP_STAMP_TEXT_FORMAT,
     PROP_COUNT
 };
 
@@ -82,6 +83,7 @@ xc_chat_view_init (XcChatView *xccv)
   gtk_tree_view_set_enable_search (xccv->tview, FALSE);
 
   //xccv->dtformat = g_strdup ("%F");
+  g_settings_bind (settings, "stamp-text",        xccv, "stamp-text",        G_SETTINGS_BIND_DEFAULT);
   g_settings_bind (settings, "stamp-text-format", xccv, "stamp-text-format", G_SETTINGS_BIND_GET);
 }
 
@@ -97,7 +99,13 @@ xc_chat_view_class_init (XcChatViewClass *klass)
   gobject_class->set_property = xc_chat_view_set_property;
 
   /* property and signal definitions go here */
-  xcproperties[PROP_DTFORMAT] = g_param_spec_string (
+  xcproperties[PROP_STAMP_TEXT] = g_param_spec_boolean (
+    "stamp-text",				// name
+    "Enable timestamps",			// nickname
+    "Show timestamps in chat windows.",		// description
+    FALSE,					// Default value
+    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+  xcproperties[PROP_STAMP_TEXT_FORMAT] = g_param_spec_string (
     "stamp-text-format",			// name
     "Timestamp format",				// nickname
     "See the strftime manpage for details.",	// description
@@ -113,7 +121,11 @@ xc_chat_view_set_property (GObject *object, guint prop_id, const GValue *value, 
   XcChatView *xccv = XC_CHAT_VIEW (object);
 
   switch (prop_id) {
-    case PROP_DTFORMAT:
+    case PROP_STAMP_TEXT:
+      xccv->timestamps = g_value_get_boolean(value);
+      xc_chat_view_set_time_stamp (xccv, xccv->timestamps);
+      break;
+    case PROP_STAMP_TEXT_FORMAT:
       if (xccv->dtformat)
         g_free (xccv->dtformat);
       xccv->dtformat = g_value_dup_string (value);
@@ -131,7 +143,10 @@ xc_chat_view_get_property (GObject *object, guint prop_id, GValue *value, GParam
   XcChatView *xccv = XC_CHAT_VIEW (object);
 
   switch (prop_id) {
-    case PROP_DTFORMAT:
+    case PROP_STAMP_TEXT:
+      g_value_set_boolean (value, xccv->timestamps);
+      break;
+    case PROP_STAMP_TEXT_FORMAT:
       g_value_set_string (value, xccv->dtformat);
       break;
     default:
@@ -258,12 +273,12 @@ xc_chat_view_set_font (XcChatView *xccv, char *name)
 void
 xc_chat_view_set_wordwrap (XcChatView *xccv, gboolean word_wrap)
 {
-  int s = -1;
+  int w = -1;
 
   if (word_wrap)
-    s = 100;
+    w = 100;
 
-  g_object_set (xccv->cell_ms, "wrap-width", s, NULL);
+  g_object_set (xccv->cell_ms, "wrap-width", w, NULL);
   gtk_tree_view_column_queue_resize (gtk_tree_view_get_column (xccv->tview, TVC_MESSAGE));
   // PANGO_WRAP_WORD, PANGO_WRAP_CHAR, PANGO_WRAP_WORD_CHAR
 }
@@ -384,7 +399,6 @@ xc_chat_view_copy_selection (XcChatView *xccv)
 		*newl = "\n",  *blank = "";
 
   rows = gtk_tree_selection_get_selected_rows (xccv->select, &model);
-  GtkTreeViewColumn *dtime = gtk_tree_view_get_column (xccv->tview, TVC_TIMED);
 
   nl = blank;
   for (r = rows; r != NULL; r = r->next)
@@ -396,7 +410,7 @@ xc_chat_view_copy_selection (XcChatView *xccv)
 				SFS_HANDLE, &h,
 				SFS_MESSAG, &m, -1);
       g_string_append (hold, nl);
-      if (gtk_tree_view_column_get_visible (dtime))
+      if (xccv->timestamps)
       {
         if (gd)
         {
@@ -572,10 +586,13 @@ search_columns () {
 
 void
 xc_chat_view_run_search (XcChatView *xccv, const gchar *stext, gboolean all, gboolean icase, gboolean regex) {
-	GtkTreeModel *model = gtk_tree_view_get_model (xccv->tview);
-	GString *holder = g_string_new("");
+	//GtkTreeModel *model = gtk_tree_view_get_model (xccv->tview);
+	GtkTreeModel *model = GTK_TREE_MODEL (xccv->store);
+	GString *hold = g_string_sized_new (1024);
+	GDateTime *gd;
 	GtkTreeIter iter;
 	gboolean valid;
+	gchar *dt_str, *h, *m;
 
 	xccv->search_current = NULL;
 	if (xccv->search_paths != NULL) {
@@ -590,49 +607,52 @@ xc_chat_view_run_search (XcChatView *xccv, const gchar *stext, gboolean all, gbo
 
 	if (gtk_tree_model_get_iter_first (model, &iter)) {
 		do {
-			gchar *value;
-			for (int c = 0; c < TVC_TOTAL; c++) {
-				gtk_tree_model_get (model, &iter, c, &value, -1);
-				g_string_append_printf (holder, "%s%s", " ", value);
-				g_free (value);
-			}
+			dt_str = "";
+			gtk_tree_model_get (model, &iter,
+					SFS_GDTIME, &gd,
+					SFS_HANDLE, &h,
+					SFS_MESSAG, &m, -1);
+			if (xccv->timestamps && gd)
+				dt_str = g_date_time_format (gd, xccv->dtformat);
 
-			if (g_strrstr (holder->str, stext)) {
+			g_string_append_printf (hold, "%s %s %s", dt_str, h, m);
+
+			if (strstr (hold->str, stext)) {
 				GtkTreePath *path = gtk_tree_model_get_path (model, &iter);
 				xccv->search_paths = g_list_prepend (xccv->search_paths, path);
 			}
 
-			g_string_truncate(holder, 0);
+			if (gd) {
+				g_date_time_unref (gd);
+				if (xccv->timestamps)
+					g_free (dt_str);
+			}
+			g_free (h);
+			g_free (m);
+			g_string_truncate(hold, 0);
+
 			valid = gtk_tree_model_iter_next(model, &iter);
 		} while (valid);
 		if (xccv->search_paths)
-			xc_chat_view_next_search (xccv, TRUE);
+			xc_chat_view_next_search (xccv, FALSE);
+		else
+			gtk_tree_selection_unselect_all (xccv->select);
 	}
-	g_string_free (holder, TRUE);
-	return; // String not found
+	g_string_free (hold, TRUE);
+	return;
 }
 
 /* false, down the window; true, up the window. The GList starts at the end. */
 void
 xc_chat_view_next_search (XcChatView *xccv, gboolean direction) {
-	//gboolean move = FALSE;
-
 	if (!xccv->search_paths)
 		return;
-
 	if (!xccv->search_current)
 		xccv->search_current = xccv->search_paths; // new search
-	else if (direction) {
-		if (xccv->search_current->prev == NULL)
-			return;
-		else
-			xccv->search_current = xccv->search_current->prev;
-	} else if (!direction) {
-		if (xccv->search_current->next == NULL)
-			return;
-		else
-			xccv->search_current = xccv->search_current->next;
-	}
+	else if (direction && xccv->search_current->prev)
+		xccv->search_current = xccv->search_current->prev;
+	else if (!direction && xccv->search_current->next)
+		xccv->search_current = xccv->search_current->next;
 
 	if (xccv->search_current->data) {
 		gtk_tree_selection_unselect_all (xccv->select);
@@ -644,36 +664,35 @@ xc_chat_view_next_search (XcChatView *xccv, gboolean direction) {
 /* fe-gtk.c doesn't even check the return value. */
 void
 xc_chat_view_lastlog (XcChatView *xccv, const gchar *text, XcChatView *target) {
-	GtkTreeModel *model = gtk_tree_view_get_model (xccv->tview);
+	GtkTreeModel *model = GTK_TREE_MODEL (xccv->store);
+	GString *hold = g_string_sized_new (1024);
+	GDateTime *gd;
 	GtkTreeIter iter;
 	gboolean valid;
-	GDateTime *gd;
 	gchar *dt_str, *h, *m;
-	GString *hold = g_string_new(NULL);
-	GtkTreeViewColumn *dtime = gtk_tree_view_get_column (xccv->tview, TVC_TIMED);
-	gboolean tdates = gtk_tree_view_column_get_visible (dtime);
 
 	xc_chat_view_clear (target, 0);
 
 	if (gtk_tree_model_get_iter_first (model, &iter)) {
 		do {
+			dt_str = "";
 			gtk_tree_model_get (model, &iter,
 					SFS_GDTIME, &gd,
 					SFS_HANDLE, &h,
 					SFS_MESSAG, &m, -1);
-			if (tdates) {
-				if (gd) {
-					dt_str = g_date_time_format (gd, xccv->dtformat);
-					g_string_append_printf (hold, "%s ", dt_str);
-					g_free (dt_str);
-				}
-			}
-			g_string_append_printf (hold, "%s %s", h, m);
+			if (xccv->timestamps && gd)
+				dt_str = g_date_time_format (gd, xccv->dtformat);
 
-			if (g_strrstr (hold->str, text))
+			g_string_append_printf (hold, "%s %s %s", dt_str, h, m);
+
+			if (strstr (hold->str, text))
 				xc_chat_view_append0 (target, gd, h, m);
-			if (gd)
+
+			if (gd) {
 				g_date_time_unref (gd);
+				if (xccv->timestamps)
+					g_free (dt_str);
+			}
 			g_free (h);
 			g_free (m);
 			g_string_truncate(hold, 0);
