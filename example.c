@@ -185,7 +185,7 @@ cb_toggled (GtkToggleButton *togged, gpointer stack) {
 		if (togged == searchbits[c])
 			break;
 	if (c == 3) {
-		g_print ("Error processing search flags: line %d, %s().\n", __LINE__, __FILE__);
+		g_printerr ("Error processing search flags: line %d, %s().\n", __LINE__, __FILE__);
 		return;
 	}
 	searchflags[c] = gtk_toggle_button_get_active (searchbits[c]);
@@ -355,8 +355,10 @@ example_activated (GtkApplication *app, gpointer user_data) {
 
 	XcChatView *xccv1 = (xc_chat_view_new ());
 	XcChatView *xccv2 = (xc_chat_view_new ());
+	XcChatView *xccv3 = (xc_chat_view_new ());
 	create_tabs (xccv1, stack, "One");
 	create_tabs (xccv2, stack, "Two");
+	create_tabs (xccv3, stack, "Three");
 
 	gtk_widget_show_all (win);
 /*
@@ -367,6 +369,7 @@ example_activated (GtkApplication *app, gpointer user_data) {
 */
 	xc_chat_view_set_scrollback_file (xccv1, "text1");
 	xc_chat_view_set_scrollback_file (xccv2, "text2");
+	xc_chat_view_set_scrollback_file (xccv3, "text3");
 }
 
 
