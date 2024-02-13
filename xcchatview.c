@@ -34,6 +34,8 @@ static void	xc_chat_view_get_property (GObject *object, guint prop_id, GValue *v
 static void	load_scrollback_finish (GObject *sourceobject, GAsyncResult *result, gpointer userdata);
 static void	load_scrollback_run (GTask *task, gpointer sobj, gpointer ud_file, GCancellable *cancellable);
 static void	update_line_count (XcChatView *xccv, gint lines);
+static void	xc_chat_view_set_wordwrap_real (XcChatView *xccv);
+
 
 G_DEFINE_TYPE(XcChatView, xc_chat_view, G_TYPE_OBJECT)
 
@@ -73,7 +75,7 @@ xc_chat_view_init (XcChatView *xccv)
   g_object_set (xccv->cell_ms, "background-rgba", &foo, NULL);
 */
   g_object_set (xccv->cell_td, "font", "Monospace 10", NULL);
-  g_object_set (xccv->cell_ms, "wrap-mode", PANGO_WRAP_WORD_CHAR, NULL);
+  g_object_set (xccv->cell_ms, "wrap-mode", PANGO_WRAP_WORD_CHAR, NULL); // PANGO_WRAP_WORD, PANGO_WRAP_CHAR
   gtk_tree_view_set_headers_visible (xccv->tview, FALSE);
 
   gtk_tree_view_insert_column_with_data_func  (xccv->tview, TVC_TIMED,       "Date", xccv->cell_td,
@@ -294,7 +296,7 @@ xc_chat_view_clear (XcChatView	*xccv, gint lines) {
 		gtk_tree_model_get_iter_first (GTK_TREE_MODEL (xccv->store), &iter);
 		for (c = lines; c > 0; c--) {
 			if (! gtk_list_store_remove (xccv->store, &iter))
-				g_print ("not deleted on %d of %d lines.\n", c, lines);
+				g_printerr ("not deleted on %d of %d lines.\n", c, lines);
 			else
 				xccv->lines_current--;
 		}
@@ -321,17 +323,37 @@ xc_chat_view_set_font (XcChatView *xccv, char *name)
 }
 
 
+static void
+xc_chat_view_set_wordwrap_real (XcChatView *xccv) {
+	g_object_set (xccv->cell_ms, "wrap-width", xccv->word_wrap_width, NULL);
+	gtk_tree_view_column_queue_resize (gtk_tree_view_get_column (xccv->tview, TVC_MESSAGE));
+}
+
+
 void
 xc_chat_view_set_wordwrap (XcChatView *xccv, gboolean word_wrap)
 {
-  int w = -1;
+	GtkTreeViewColumn *col;
+	gint wcl;
 
-  if (word_wrap)
-    w = 100;
+	xccv->word_wrap = word_wrap;
 
-  g_object_set (xccv->cell_ms, "wrap-width", w, NULL);
-  gtk_tree_view_column_queue_resize (gtk_tree_view_get_column (xccv->tview, TVC_MESSAGE));
-  // PANGO_WRAP_WORD, PANGO_WRAP_CHAR, PANGO_WRAP_WORD_CHAR
+	if (word_wrap) {
+		//xccv->parent_widget = gtk_widget_get_parent (GTK_WIDGET (xccv->tview));
+
+		//if (xccv->parent_widget)
+		wcl = gtk_widget_get_allocated_width (GTK_WIDGET (xccv->tview));
+
+		col = gtk_tree_view_get_column (xccv->tview, TVC_TIMED);
+		if (gtk_tree_view_column_get_visible (col))
+			wcl -= gtk_tree_view_column_get_width (col);
+		col = gtk_tree_view_get_column (xccv->tview, TVC_HANDLE);
+		xccv->word_wrap_width = wcl - 10 - gtk_tree_view_column_get_width (col); // 10 == fudge value
+		xc_chat_view_set_wordwrap_real (xccv);
+	} else {
+		xccv->word_wrap_width = -1;
+		xc_chat_view_set_wordwrap_real (xccv);
+	}
 }
 
 
@@ -733,6 +755,53 @@ xc_chat_view_lastlog (XcChatView *xccv, const gchar *text, XcChatView *target) {
 	g_string_free (hold, TRUE);
 	return;
 }
+
+/*
+Abandoned attempt to get auto resizing of wordwrap.  May come in handy later.
+
+static void	xc_chat_view_resizing (GtkWidget *scrolledw, GdkRectangle *alloc, gpointer us);
+static void	xc_chat_view_reparented (GtkWidget *tview, GtkWidget *old_parent, gpointer us);
+
+
+  g_signal_connect(xccv->tview, "parent-set", G_CALLBACK (xc_chat_view_reparented), xccv);
+
+
+static void
+xc_chat_view_reparented (GtkWidget *tview, GtkWidget *old_parent, gpointer us) {
+	XcChatView *xccv = XC_CHAT_VIEW (us);
+
+	if (old_parent)
+		g_signal_handler_disconnect (xccv->parent_widget, xccv->parent_widget_cb_id);
+	xccv->parent_widget = gtk_widget_get_parent (GTK_WIDGET (xccv->tview));
+	// gtk_widget_get_window (GTK_WIDGET (xccv->tview));
+	if (xccv->parent_widget) {
+		xccv->parent_widget_cb_id = g_signal_connect (xccv->parent_widget,
+				"size-allocate", G_CALLBACK(xc_chat_view_resizing), xccv);
+}}
+
+
+static void
+xc_chat_view_resizing (GtkWidget *scrolledw, GdkRectangle *alloc, gpointer us) {
+	XcChatView *xccv = XC_CHAT_VIEW (us);
+	GtkTreeViewColumn *col;
+	gint wcl;
+
+	if (xccv->word_wrap && xccv->parent_widget) {
+		wcl = gtk_widget_get_allocated_width (GTK_WIDGET (xccv->tview));
+
+		col = gtk_tree_view_get_column (xccv->tview, TVC_TIMED);
+		if (gtk_tree_view_column_get_visible (col))
+			wcl -= gtk_tree_view_column_get_width (col);
+		col = gtk_tree_view_get_column (xccv->tview, TVC_HANDLE);
+		xccv->word_wrap_width = wcl - gtk_tree_view_column_get_width (col);
+
+g_print ("test %d: %s %d\n", __LINE__, __FILE__, xccv->word_wrap_width);
+		xc_chat_view_set_wordwrap_real (xccv);
+	}
+}
+//					col = gtk_tree_view_get_column (xccv->tview, TVC_MESSAGE);
+*/
+
 
 /*
 g_print ("test %d: %s\n", __LINE__, __FILE__);

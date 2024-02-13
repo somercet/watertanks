@@ -63,6 +63,9 @@ struct _XcChatView
   GtkTreeView	*tview;
   GtkListStore	*store;
   GtkClipboard	*clippy;
+  //GtkWindow	*parent_widget;
+  GtkWidget	*parent_widget;
+  gulong	parent_widget_cb_id;
   gchar		*search_text;
   GList		*search_paths;
   GList		*search_current;
@@ -75,6 +78,8 @@ struct _XcChatView
 
   guint		lines_max;
   guint		lines_current;
+  gboolean	word_wrap;
+  gint	word_wrap_width;
   marker_reset_reason	marker_state;
   gboolean	timestamps;
   /* Private */
