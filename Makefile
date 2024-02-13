@@ -1,6 +1,8 @@
 
 # indent -linux -pcs -psl -brf -nfca -gts -nfc1 -gts
 SCHEMAS += /usr/local/share/glib-2.0/schemas
+#CFLAGS += -DGLIB_DISABLE_DEPRECATION_WARNINGS -std=gnu99 -pipe -Werror -Wall -g $$( pkgconf --cflags gtk+-2.0 )
+#LDFLAGS += $$( pkgconf --libs gtk+-2.0 )
 CFLAGS += -std=gnu99 -pipe -Werror -Wall -g $$( pkgconf --cflags gtk+-3.0 )
 LDFLAGS += $$( pkgconf --libs gtk+-3.0 )
 

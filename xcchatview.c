@@ -10,7 +10,9 @@
 #include "xcchatview.h"
 #endif
 
+#ifdef USE_GTK3_0
 extern GSettings *settings;
+#endif
 
 enum xc_chat_view_properties {
     PROP_STAMP_TEXT = 1,
@@ -89,8 +91,11 @@ xc_chat_view_init (XcChatView *xccv)
   xccv->lines_current = 0;
 
   //xccv->dtformat = g_strdup ("%F");
+
+#ifdef USE_GTK3_0
   g_settings_bind (settings, "stamp-text",        xccv, "stamp-text",        G_SETTINGS_BIND_DEFAULT);
   g_settings_bind (settings, "stamp-text-format", xccv, "stamp-text-format", G_SETTINGS_BIND_GET);
+#endif
 }
 
 
@@ -340,10 +345,14 @@ xc_chat_view_set_wordwrap (XcChatView *xccv, gboolean word_wrap)
 
 	if (word_wrap) {
 		//xccv->parent_widget = gtk_widget_get_parent (GTK_WIDGET (xccv->tview));
-
 		//if (xccv->parent_widget)
+#ifdef USE_GTK3_0
 		wcl = gtk_widget_get_allocated_width (GTK_WIDGET (xccv->tview));
-
+#else
+		GtkAllocation rect;
+		gtk_widget_get_allocation (GTK_WIDGET (xccv->tview), &rect);
+		wcl = rect.width;
+#endif
 		col = gtk_tree_view_get_column (xccv->tview, TVC_TIMED);
 		if (gtk_tree_view_column_get_visible (col))
 			wcl -= gtk_tree_view_column_get_width (col);
@@ -366,9 +375,13 @@ xc_chat_view_set_time_stamp (XcChatView *xccv, gboolean show_dtime)
 
 
 void
-// xc_chat_view_set_background (XcChatView *xccv, GdkPixmap *pixmap )
+#ifdef USE_GTK3_0
+xc_chat_view_set_background (XcChatView *xccv, GdkPixmap *pixmap )
+#else
 xc_chat_view_set_background (XcChatView *xccv, gchar *file)
+#endif
 {
+#ifdef USE_GTK3_0
   GtkCssProvider	*provider;
   GdkDisplay	*display;
   GdkScreen	*screen;
@@ -392,13 +405,20 @@ xc_chat_view_set_background (XcChatView *xccv, gchar *file)
   g_object_unref (provider);
   g_free (half);
   g_free (full);
+
+#endif
+
+	return;
 }
 
 
 // TODO: All these can wait
 void
-//xc_chat_view_set_palette (XcChatView *xccv, GdkColor palette[])
+#ifdef USE_GTK3_0
 xc_chat_view_set_palette (XcChatView *xccv, GdkRGBA palette[])
+#else
+xc_chat_view_set_palette (XcChatView *xccv, GdkColor palette[])
+#endif
 {
 // https://developer-old.gnome.org/gdk3/stable/gdk3-Colors.html#GdkColor
 // https://developer-old.gnome.org/gdk3/stable/gdk3-RGBA-Colors.html#GdkRGBA
@@ -539,8 +559,9 @@ load_scrollback_run (GTask *task, gpointer sobj, gpointer ud_file, GCancellable 
 	{
 		gchar **lines = g_strsplit (contents, "\n", 0);
 		GTimeZone *tz = g_time_zone_new_local ();
+		guint i; // gtk2, was in for()
 
-		for (guint i = g_strv_length (lines); i > 0; i--) {
+		for (i = g_strv_length (lines); i > 0; i--) {
 			if (xccv->lines_current >= xccv->lines_max)
 				break;
 
