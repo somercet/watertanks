@@ -10,8 +10,9 @@
 #include "xcchatview.h"
 #endif
 
-#ifdef USE_GTK3_0
+#ifdef USE_GTK3
 extern GSettings *settings;
+#else
 #endif
 
 enum xc_chat_view_properties {
@@ -92,9 +93,10 @@ xc_chat_view_init (XcChatView *xccv)
 
   //xccv->dtformat = g_strdup ("%F");
 
-#ifdef USE_GTK3_0
+#ifdef USE_GTK3
   g_settings_bind (settings, "stamp-text",        xccv, "stamp-text",        G_SETTINGS_BIND_DEFAULT);
   g_settings_bind (settings, "stamp-text-format", xccv, "stamp-text-format", G_SETTINGS_BIND_GET);
+#else
 #endif
 }
 
@@ -346,7 +348,7 @@ xc_chat_view_set_wordwrap (XcChatView *xccv, gboolean word_wrap)
 	if (word_wrap) {
 		//xccv->parent_widget = gtk_widget_get_parent (GTK_WIDGET (xccv->tview));
 		//if (xccv->parent_widget)
-#ifdef USE_GTK3_0
+#ifdef USE_GTK3
 		wcl = gtk_widget_get_allocated_width (GTK_WIDGET (xccv->tview));
 #else
 		GtkAllocation rect;
@@ -375,13 +377,13 @@ xc_chat_view_set_time_stamp (XcChatView *xccv, gboolean show_dtime)
 
 
 void
-#ifdef USE_GTK3_0
-xc_chat_view_set_background (XcChatView *xccv, GdkPixmap *pixmap )
-#else
+#ifdef USE_GTK3
 xc_chat_view_set_background (XcChatView *xccv, gchar *file)
+#else
+xc_chat_view_set_background (XcChatView *xccv, GdkPixmap *pixmap )
 #endif
 {
-#ifdef USE_GTK3_0
+#ifdef USE_GTK3
   GtkCssProvider	*provider;
   GdkDisplay	*display;
   GdkScreen	*screen;
@@ -405,16 +407,15 @@ xc_chat_view_set_background (XcChatView *xccv, gchar *file)
   g_object_unref (provider);
   g_free (half);
   g_free (full);
-
-#endif
-
+#else
 	return;
+#endif
 }
 
 
 // TODO: All these can wait
 void
-#ifdef USE_GTK3_0
+#ifdef USE_GTK3
 xc_chat_view_set_palette (XcChatView *xccv, GdkRGBA palette[])
 #else
 xc_chat_view_set_palette (XcChatView *xccv, GdkColor palette[])
