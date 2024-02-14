@@ -32,6 +32,15 @@ G_BEGIN_DECLS
 typedef struct _XcChatView	XcChatView;
 typedef struct _XcChatViewClass	XcChatViewClass;
 
+typedef enum xc_search_flags_e {
+	case_match = 1,
+	backward = 2,
+	highlight = 4,
+	follow = 8,
+	regexp = 16
+} xc_search_flags;
+
+
 typedef enum marker_reset_reason_e {
 	MARKER_WAS_NEVER_SET = 0,
 	MARKER_IS_SET,
@@ -66,9 +75,6 @@ struct _XcChatView
   //GtkWindow	*parent_widget;
   GtkWidget	*parent_widget;
   gulong	parent_widget_cb_id;
-  gchar		*search_text;
-  GList		*search_paths;
-  GList		*search_current;
 
   GtkTreeSelection	*select;
   GtkCellRenderer	*cell_td, *cell_hn, *cell_ms;
@@ -82,6 +88,15 @@ struct _XcChatView
   gint	word_wrap_width;
   marker_reset_reason	marker_state;
   gboolean	timestamps;
+
+  gchar		*search_text;
+  GList		*search_paths;
+  GList		*search_current;
+  xc_search_flags	flags;
+  guint		search_item;
+  guint		total_found;
+
+  GMutex	mutex;
   /* Private */
 };
 

@@ -152,13 +152,17 @@ static void
 cb_find (GSimpleAction *simple, GVariant *parameter, gpointer stck) {
 	gtk_search_bar_set_search_mode (searchbits[SI_BAR],
 		! gtk_search_bar_get_search_mode (searchbits[SI_BAR]) );
+
+// gtk_entry_set_icon_from_icon_name (searchbits[SI_ENTRY], GTK_ENTRY_ICON_SECONDARY, "dialog-error");
 }
 
 static void
 run_search (GtkSearchEntry *entry, gpointer stack) {
 	XcChatView *xccv = get_active_xccv (GTK_STACK (stack));
-	xc_chat_view_run_search (xccv, gtk_entry_get_text (GTK_ENTRY (entry)),
+	xc_chat_view_run_search (xccv, gtk_entry_get_text (GTK_ENTRY (entry)), 
 		searchflags[SI_ALL], searchflags[SI_CASE], searchflags[SI_REGEX]);
+//gtk_xtext_search (GTK_XTEXT (sess->gui->xtext), text, flags, &err);
+//xc_search_flags flags);
 }
 
 static void

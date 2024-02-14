@@ -91,6 +91,8 @@ xc_chat_view_init (XcChatView *xccv)
   xccv->lines_max = 1000;
   xccv->lines_current = 0;
 
+  g_mutex_init (&xccv->mutex);
+
   //xccv->dtformat = g_strdup ("%F");
 
 #ifdef USE_GTK3
@@ -184,6 +186,7 @@ xc_chat_view_dispose (GObject *object)
     g_free (xccv->scrollback_filename);
   if (xccv->dtformat)
     g_free (xccv->dtformat);
+  g_mutex_clear (&xccv->mutex);
 
   G_OBJECT_CLASS (xc_chat_view_parent_class)->dispose (object);
 }
@@ -360,11 +363,10 @@ xc_chat_view_set_wordwrap (XcChatView *xccv, gboolean word_wrap)
 			wcl -= gtk_tree_view_column_get_width (col);
 		col = gtk_tree_view_get_column (xccv->tview, TVC_HANDLE);
 		xccv->word_wrap_width = wcl - 10 - gtk_tree_view_column_get_width (col); // 10 == fudge value
-		xc_chat_view_set_wordwrap_real (xccv);
-	} else {
+	} else
 		xccv->word_wrap_width = -1;
-		xc_chat_view_set_wordwrap_real (xccv);
-	}
+
+	xc_chat_view_set_wordwrap_real (xccv);
 }
 
 
@@ -582,7 +584,7 @@ load_scrollback_run (GTask *task, gpointer sobj, gpointer ud_file, GCancellable 
 				}
 			}
 
-			gchar *r = f[1];
+			gchar *r = f[1]; // lose <uname_brackets>
 			if (f[1][0] == '<') {
 				r++;
 				size_t z = strlen(f[1]);
