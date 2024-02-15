@@ -1,0 +1,16 @@
+ChatView for an IM client in GTK3.
+
+Uses the log files, not scrollback files, as the latter are far too cluttered to
+migrate, I believe.  Proper format is:
+
+2024-02-15T14:58:14Z <tab> <username> <tab> message
+
+Much want to insist on ISO 8601 *including* time zone.
+
+Any line with less than two tabs is silently replaced with an empty line.
+"text2" file contains broken lines to test widget.
+
+Marker line, save and colored text are empty "return" funcs.  No sense getting
+that involved until final form of widget is worked out.  Highlight all, case
+insensitive, and regex are not implemented for now.
+
