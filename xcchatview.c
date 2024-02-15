@@ -34,10 +34,12 @@ static void	xc_chat_view_class_init	(XcChatViewClass	*class );
 static void	xc_chat_view_dispose (	GObject			*object );
 static void	xc_chat_view_set_property (GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec);
 static void	xc_chat_view_get_property (GObject *object, guint prop_id, GValue *value, GParamSpec *pspec);
-static void	load_scrollback_finish (GObject *sourceobject, GAsyncResult *result, gpointer userdata);
-static void	load_scrollback_run (GTask *task, gpointer sobj, gpointer ud_file, GCancellable *cancellable);
-static void	update_line_count (XcChatView *xccv, gint lines);
+static void	xc_chat_view_load_scrollback_finish (GObject *sourceobject, GAsyncResult *result, gpointer userdata);
+static void	xc_chat_view_load_scrollback_run (GTask *task, gpointer sobj, gpointer ud_file, GCancellable *cancellable);
+static void	xc_chat_view_update_line_count (XcChatView *xccv, gint lines);
 static void	xc_chat_view_set_wordwrap_real (XcChatView *xccv);
+static void	xc_chat_view_clear_search (XcChatView *xccv);
+static void	xc_chat_view_update_search_widget (XcChatView *xccv);
 
 
 G_DEFINE_TYPE(XcChatView, xc_chat_view, G_TYPE_OBJECT)
@@ -71,7 +73,7 @@ xc_chat_view_init (XcChatView *xccv)
   g_object_ref_sink (xccv->cell_td);
   g_object_ref_sink (xccv->cell_hn);
   g_object_ref_sink (xccv->cell_ms);
-  g_object_ref_sink (xccv->store);
+  //  g_object_ref_sink (xccv->store);
   g_object_ref_sink (xccv->tview);
 /*
   GdkRGBA foo = { 0.0, 0.0, 0.0, 0.0 }; // { R, G, B, A } 0.0 to 1.0 double
@@ -93,6 +95,10 @@ xc_chat_view_init (XcChatView *xccv)
 
   g_mutex_init (&xccv->mutex);
 
+  xccv->search_widget = gtk_label_new (NULL);
+  g_object_ref_sink (G_OBJECT (xccv->search_widget));
+  xccv->search_label = g_string_new ("---");
+  xc_chat_view_update_search_widget (xccv);
   //xccv->dtformat = g_strdup ("%F");
 
 #ifdef USE_GTK3
@@ -186,11 +192,19 @@ xc_chat_view_dispose (GObject *object)
     g_free (xccv->scrollback_filename);
   if (xccv->dtformat)
     g_free (xccv->dtformat);
+
   g_mutex_clear (&xccv->mutex);
+
+  if (xccv->search_paths)
+  {
+    g_list_free_full (xccv->search_paths, (GDestroyNotify) gtk_tree_path_free);
+    xccv->search_paths = NULL;
+  }
+  g_string_free (xccv->search_label, TRUE);
+  g_clear_object (&xccv->search_widget);
 
   G_OBJECT_CLASS (xc_chat_view_parent_class)->dispose (object);
 }
-
 
 static void
 cell_func_dtime (	GtkTreeViewColumn	*tree_column,
@@ -246,7 +260,7 @@ xc_chat_view_append_indent (XcChatView *xccv,
     SFS_GDTIME, gdt,
     -1);
 
-  update_line_count (xccv, 1);
+  xc_chat_view_update_line_count (xccv, 1);
 
   g_date_time_unref (gdt);
 }
@@ -262,7 +276,7 @@ xc_chat_view_prepend0 (	XcChatView	*xccv,
     SFS_GDTIME, dtime,
     -1);
 
-  update_line_count (xccv, 1);
+  xc_chat_view_update_line_count (xccv, 1);
 }
 
 
@@ -280,12 +294,12 @@ xc_chat_view_append0 (	XcChatView	*xccv,
     SFS_GDTIME, dtime,
     -1);
 
-  update_line_count (xccv, 1);
+  xc_chat_view_update_line_count (xccv, 1);
 }
 
 
 static void
-update_line_count (XcChatView *xccv, gint l) {
+xc_chat_view_update_line_count (XcChatView *xccv, gint l) {
 	gint c;
 
 	xccv->lines_current += l;
@@ -531,7 +545,7 @@ xc_chat_view_copy_selection (XcChatView *xccv)
 }
 
 static void
-load_scrollback_finish (GObject *sobj, GAsyncResult *res, gpointer loop) {
+xc_chat_view_load_scrollback_finish (GObject *sobj, GAsyncResult *res, gpointer loop) {
 	XcChatView *xccv = XC_CHAT_VIEW (sobj);
 	GTask *task = G_TASK (res);
 	GError *error;
@@ -551,7 +565,7 @@ load_scrollback_finish (GObject *sobj, GAsyncResult *res, gpointer loop) {
 
 
 static void
-load_scrollback_run (GTask *task, gpointer sobj, gpointer ud_file, GCancellable *cancellable) {
+xc_chat_view_load_scrollback_run (GTask *task, gpointer sobj, gpointer ud_file, GCancellable *cancellable) {
 	XcChatView *xccv = XC_CHAT_VIEW (sobj);
 	GFile *file = G_FILE (ud_file);
 	GError *error;
@@ -633,9 +647,9 @@ xc_chat_view_set_scrollback_file (XcChatView *xccv, gchar *filename)
   if (begin)
   {
     xccv->scrollback_filename = g_strdup (filename);
-    GTask *task = g_task_new (xccv, NULL, load_scrollback_finish, file); // cancellable
+    GTask *task = g_task_new (xccv, NULL, xc_chat_view_load_scrollback_finish, file); // cancellable
     g_task_set_task_data (task, file, NULL);
-    g_task_run_in_thread (task, load_scrollback_run);
+    g_task_run_in_thread (task, xc_chat_view_load_scrollback_run);
   } else {
     GDateTime *dt = g_date_time_new_now_local ();
     GString *msg = g_string_new ("Set scrollback file failed: ");
@@ -649,17 +663,30 @@ xc_chat_view_set_scrollback_file (XcChatView *xccv, gchar *filename)
 
 
 /*
-struct search_results {
-  gchar *search_text;
-  GList *search_paths;
-  GList *search_current;
-};
+   gchar	*search_text;
+   GList	*search_paths;
+   GList	*search_current;
+   guint	search_total;
+   guint	search_now;
+   GtkLabel	*search_widget; 
+   GString	*search_label; 
+   xc_search_flags       flags;
+*/
 
 static void
-search_columns () {
-
+xc_chat_view_clear_search (XcChatView *xccv) {
+	g_string_assign (xccv->search_label, "---");
+	xc_chat_view_update_search_widget (xccv);
+	if (xccv->search_paths)
+		g_list_free_full (xccv->search_paths, (GDestroyNotify) gtk_tree_path_free);
+	xccv->search_paths = NULL;
+	xccv->search_current = NULL;
 }
-*/
+
+static void
+xc_chat_view_update_search_widget (XcChatView *xccv) {
+	gtk_label_set_text (GTK_LABEL (xccv->search_widget), xccv->search_label->str);
+}
 
 void
 xc_chat_view_run_search (XcChatView *xccv, const gchar *stext, gboolean all, gboolean icase, gboolean regex) {
@@ -671,50 +698,59 @@ xc_chat_view_run_search (XcChatView *xccv, const gchar *stext, gboolean all, gbo
 	gboolean valid;
 	gchar *dt_str, *h, *m;
 
-	xccv->search_current = NULL;
-	if (xccv->search_paths != NULL) {
-		g_list_free_full (xccv->search_paths, (GDestroyNotify) gtk_tree_path_free);
-		xccv->search_paths = NULL;
-	}
+	if (xccv->search_paths != NULL)
+		xc_chat_view_clear_search (xccv);
 
 	if (stext[0] == '\0') {
 		gtk_tree_selection_unselect_all (xccv->select);
+		g_string_assign (xccv->search_label, "---");
+		xc_chat_view_update_search_widget (xccv);
 		return;
 	}
 
-	if (gtk_tree_model_get_iter_first (model, &iter)) {
-		do {
-			dt_str = "";
-			gtk_tree_model_get (model, &iter,
-					SFS_GDTIME, &gd,
-					SFS_HANDLE, &h,
-					SFS_MESSAG, &m, -1);
-			if (xccv->timestamps && gd)
-				dt_str = g_date_time_format (gd, xccv->dtformat);
-
-			g_string_append_printf (hold, "%s %s %s", dt_str, h, m);
-
-			if (strstr (hold->str, stext)) {
-				GtkTreePath *path = gtk_tree_model_get_path (model, &iter);
-				xccv->search_paths = g_list_prepend (xccv->search_paths, path);
-			}
-
-			if (gd) {
-				g_date_time_unref (gd);
-				if (xccv->timestamps)
-					g_free (dt_str);
-			}
-			g_free (h);
-			g_free (m);
-			g_string_truncate(hold, 0);
-
-			valid = gtk_tree_model_iter_next(model, &iter);
-		} while (valid);
-		if (xccv->search_paths)
-			xc_chat_view_next_search (xccv, FALSE);
-		else
-			gtk_tree_selection_unselect_all (xccv->select);
+	if (! gtk_tree_model_get_iter_first (model, &iter)) {
+		g_string_assign (xccv->search_label, "---");
+		xc_chat_view_update_search_widget (xccv);
+		return;
+	} else {
+		xccv->search_total = 0;
+		xccv->search_now = 0;
 	}
+
+	do {
+		dt_str = "";
+		gtk_tree_model_get (model, &iter,
+				SFS_GDTIME, &gd,
+				SFS_HANDLE, &h,
+				SFS_MESSAG, &m, -1);
+		if (xccv->timestamps && gd)
+			dt_str = g_date_time_format (gd, xccv->dtformat);
+
+		g_string_append_printf (hold, "%s %s %s", dt_str, h, m);
+
+		if (strstr (hold->str, stext)) {
+			GtkTreePath *path = gtk_tree_model_get_path (model, &iter);
+			xccv->search_paths = g_list_prepend (xccv->search_paths, path);
+			xccv->search_total++;
+		}
+
+		if (gd) {
+			g_date_time_unref (gd);
+			if (xccv->timestamps)
+				g_free (dt_str);
+		}
+		g_free (h);
+		g_free (m);
+		g_string_truncate(hold, 0);
+
+		valid = gtk_tree_model_iter_next(model, &iter);
+	} while (valid);
+
+	if (xccv->search_paths)
+		xc_chat_view_next_search (xccv, FALSE);
+	else
+		gtk_tree_selection_unselect_all (xccv->select);
+
 	g_string_free (hold, TRUE);
 	return;
 }
@@ -724,17 +760,24 @@ void
 xc_chat_view_next_search (XcChatView *xccv, gboolean direction) {
 	if (!xccv->search_paths)
 		return;
-	if (!xccv->search_current)
-		xccv->search_current = xccv->search_paths; // new search
-	else if (direction && xccv->search_current->prev)
+	if (!xccv->search_current) { // new search
+		xccv->search_current = xccv->search_paths;
+		xccv->search_now = 1;
+	} else if (direction && xccv->search_current->prev) {
 		xccv->search_current = xccv->search_current->prev;
-	else if (!direction && xccv->search_current->next)
+		xccv->search_now--;
+	} else if (!direction && xccv->search_current->next) {
 		xccv->search_current = xccv->search_current->next;
+		xccv->search_now++;
+	}
 
 	if (xccv->search_current->data) {
 		gtk_tree_selection_unselect_all (xccv->select);
 		gtk_tree_selection_select_path (xccv->select, xccv->search_current->data);
 		gtk_tree_view_scroll_to_cell (xccv->tview, xccv->search_current->data, NULL, FALSE, 0, 0);
+
+		g_string_printf (xccv->search_label, "%d of %d", xccv->search_now, xccv->search_total);
+		xc_chat_view_update_search_widget (xccv);
 	}
 }
 

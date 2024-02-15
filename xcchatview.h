@@ -40,7 +40,6 @@ typedef enum xc_search_flags_e {
 	regexp = 16
 } xc_search_flags;
 
-
 typedef enum marker_reset_reason_e {
 	MARKER_WAS_NEVER_SET = 0,
 	MARKER_IS_SET,
@@ -89,12 +88,14 @@ struct _XcChatView
   marker_reset_reason	marker_state;
   gboolean	timestamps;
 
-  gchar		*search_text;
-  GList		*search_paths;
-  GList		*search_current;
-  xc_search_flags	flags;
-  guint		search_item;
-  guint		total_found;
+  gchar	*search_text;
+  GList	*search_paths;
+  GList	*search_current;
+  GtkWidget	*search_widget;
+  GString	*search_label;
+  guint	search_total; 
+  guint	search_now; 
+  xc_search_flags	search_flags;
 
   GMutex	mutex;
   /* Private */
@@ -105,10 +106,24 @@ struct _XcChatViewClass
   GObjectClass	parent_class;
 
 /* Standard OOP form function decs go here */
+  void	(* append)	(XcChatView	*xccv,
+			guchar		*message,
+			gint		message_len,
+			time_t		stamp );
+  void (*append_indent)	(XcChatView	*xccv,
+			guchar		*handle,
+			gint		handle_len,
+			guchar		*message,
+			gint		message_len,
+			time_t		stamp );
   void (* append0)	(XcChatView	*xccv,
 			GDateTime	*dtime,
-			gchar	*handle,
-			gchar	*message);
+			gchar		*handle,
+			gchar		*message);
+  void (* prepend0)	(XcChatView	*xccv,
+			GDateTime	*dtime,
+			gchar		*handle,
+			gchar		*message);
 };
 
 

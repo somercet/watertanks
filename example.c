@@ -103,8 +103,14 @@ cb_quit (GSimpleAction *simple, GVariant *parameter, gpointer win) {
 static void
 chpg (GtkStack *stack, gboolean up) {
 	struct Xccvbit *tab;
-	gboolean got = FALSE;
+	gboolean got = FALSE,
+		sb_visible = gtk_search_bar_get_search_mode (searchbits[SI_BAR]);
 	GtkWidget *current = gtk_stack_get_visible_child (stack);
+
+	if (sb_visible) {
+		XcChatView *xccvold = get_active_xccv (GTK_STACK (stack));
+		gtk_container_remove (searchbits[SI_LABEL], xccvold->search_widget);
+	}
 
 	GList *l;
 	for (l = stakk; l != NULL; ) {
@@ -121,6 +127,12 @@ chpg (GtkStack *stack, gboolean up) {
 			}
 		}
 		l = l->next;
+	}
+
+	if (sb_visible) {
+		XcChatView *xccvnew = get_active_xccv (GTK_STACK (stack));
+		gtk_box_pack_start (searchbits[SI_LABEL], xccvnew->search_widget, FALSE, FALSE, 0);
+		gtk_widget_show_all (xccvnew->search_widget);
 	}
 }
 
@@ -149,10 +161,18 @@ create_tabs (XcChatView *xccv, GtkWidget *stack, char *name) {
 
 
 static void
-cb_find (GSimpleAction *simple, GVariant *parameter, gpointer stck) {
-	gtk_search_bar_set_search_mode (searchbits[SI_BAR],
-		! gtk_search_bar_get_search_mode (searchbits[SI_BAR]) );
+cb_find (GSimpleAction *simple, GVariant *parameter, gpointer stack) {
+	gboolean visible = ! gtk_search_bar_get_search_mode (searchbits[SI_BAR]);
 
+	gtk_search_bar_set_search_mode (searchbits[SI_BAR], visible);
+
+	XcChatView *xccv = get_active_xccv (GTK_STACK (stack));
+	if (visible) {
+		gtk_box_pack_start (searchbits[SI_LABEL], xccv->search_widget, FALSE, FALSE, 0);
+		gtk_widget_show_all (xccv->search_widget);
+	}
+	else
+		gtk_container_remove (searchbits[SI_LABEL], xccv->search_widget);
 // gtk_entry_set_icon_from_icon_name (searchbits[SI_ENTRY], GTK_ENTRY_ICON_SECONDARY, "dialog-error");
 }
 
@@ -228,9 +248,12 @@ create_searchbar (GtkWidget *bar, GtkWidget *stack) {
 
 	gtk_box_pack_start (box, lastlog, FALSE, FALSE, 0);
 
+	searchbits[SI_LABEL] = (GtkBox *) gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
+
 	gtk_box_pack_start (box, searchbits[SI_PREV],	FALSE, FALSE, 0);
 	gtk_box_pack_start (box, searchbits[SI_NEXT],	FALSE, FALSE, 0);
 	gtk_box_pack_start (box, searchbits[SI_ENTRY],	TRUE,  TRUE,  0);
+	gtk_box_pack_start (box, searchbits[SI_LABEL],	FALSE, FALSE, 0);
 	gtk_box_pack_start (box, searchbits[SI_ALL],	FALSE, FALSE, 0);
 	gtk_box_pack_start (box, searchbits[SI_CASE],	FALSE, FALSE, 0);
 	gtk_box_pack_start (box, searchbits[SI_REGEX],	FALSE, FALSE, 0);
@@ -248,10 +271,19 @@ create_searchbar (GtkWidget *bar, GtkWidget *stack) {
 
 	g_signal_connect (lastlog, "clicked", G_CALLBACK (cb_lastlog), stack);
 
+
+
 	//cb_toggled (searchbits[SI_REGEX], stack);
 
 
 /*
+
+duh, make xccv create a label, and put that in the search bar.
+
+activate-current-link
+Applications may also emit the signal with g_signal_emit_by_name()
+if they need to control activation of URIs programmatically.
+
 searchflags[4];
 
 // stamp-text
@@ -359,10 +391,10 @@ example_activated (GtkApplication *app, gpointer user_data) {
 
 	XcChatView *xccv1 = (xc_chat_view_new ());
 	XcChatView *xccv2 = (xc_chat_view_new ());
-	XcChatView *xccv3 = (xc_chat_view_new ());
+//	XcChatView *xccv3 = (xc_chat_view_new ());
 	create_tabs (xccv1, stack, "One");
 	create_tabs (xccv2, stack, "Two");
-	create_tabs (xccv3, stack, "Three");
+//	create_tabs (xccv3, stack, "Three");
 
 	gtk_widget_show_all (win);
 /*
@@ -373,7 +405,7 @@ example_activated (GtkApplication *app, gpointer user_data) {
 */
 	xc_chat_view_set_scrollback_file (xccv1, "text1");
 	xc_chat_view_set_scrollback_file (xccv2, "text2");
-	xc_chat_view_set_scrollback_file (xccv3, "text3");
+//	xc_chat_view_set_scrollback_file (xccv3, "text3");
 }
 
 
