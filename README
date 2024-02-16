@@ -14,3 +14,7 @@ Marker line, save and colored text are empty "return" funcs.  No sense getting
 that involved until final form of widget is worked out.  Highlight all, case
 insensitive, and regex are not implemented for now.
 
+There is an aborted attempt to use GSettings in this for now, so the schema
+needs to be added to /usr/local and then glib-compile-schemas(1) needs to
+be run on that directory.
+
