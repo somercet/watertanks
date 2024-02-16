@@ -84,7 +84,7 @@ struct _XcChatView
   guint		lines_max;
   guint		lines_current;
   gboolean	word_wrap;
-  gint	word_wrap_width;
+  gint		word_wrap_width;
   marker_reset_reason	marker_state;
   gboolean	timestamps;
 

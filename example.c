@@ -186,19 +186,29 @@ run_search (GtkSearchEntry *entry, gpointer stack) {
 }
 
 static void
-next_search (GtkButton *togged, gpointer *stack, gboolean direction) {
+next_search (gpointer *stack, gboolean direction) {
 	XcChatView *xccv = get_active_xccv (GTK_STACK (stack));
 	xc_chat_view_next_search (xccv, direction);
 }
 
 static void
-cb_next (GtkButton *togged, gpointer stack) {
-	next_search (togged, stack, TRUE);
+cb_next (GSimpleAction *simple, GVariant *parameter, gpointer stack) {
+	next_search (stack, TRUE);
 }
 
 static void
-cb_prev (GtkButton *togged, gpointer stack) {
-	next_search (togged, stack, FALSE);
+cb_bnext (GtkButton *togged, gpointer stack) {
+	next_search (stack, TRUE);
+}
+
+static void
+cb_prev (GSimpleAction *simple, GVariant *parameter, gpointer stack) {
+	next_search (stack, FALSE);
+}
+
+static void
+cb_bprev (GtkButton *togged, gpointer stack) {
+	next_search (stack, FALSE);
 }
 
 static void
@@ -253,7 +263,7 @@ create_searchbar (GtkWidget *bar, GtkWidget *stack) {
 	gtk_box_pack_start (box, searchbits[SI_PREV],	FALSE, FALSE, 0);
 	gtk_box_pack_start (box, searchbits[SI_NEXT],	FALSE, FALSE, 0);
 	gtk_box_pack_start (box, searchbits[SI_ENTRY],	TRUE,  TRUE,  0);
-	gtk_box_pack_start (box, searchbits[SI_LABEL],	FALSE, FALSE, 0);
+	gtk_box_pack_start (box, searchbits[SI_LABEL],	FALSE, FALSE, 2);
 	gtk_box_pack_start (box, searchbits[SI_ALL],	FALSE, FALSE, 0);
 	gtk_box_pack_start (box, searchbits[SI_CASE],	FALSE, FALSE, 0);
 	gtk_box_pack_start (box, searchbits[SI_REGEX],	FALSE, FALSE, 0);
@@ -266,8 +276,8 @@ create_searchbar (GtkWidget *bar, GtkWidget *stack) {
 	g_signal_connect (searchbits[SI_ALL],	"toggled",	G_CALLBACK (cb_toggled), stack);
 	g_signal_connect (searchbits[SI_CASE],	"toggled",	G_CALLBACK (cb_toggled), stack);
 	g_signal_connect (searchbits[SI_REGEX],	"toggled",	G_CALLBACK (cb_toggled), stack);
-	g_signal_connect (searchbits[SI_PREV],	"clicked",	G_CALLBACK (cb_prev), stack);
-	g_signal_connect (searchbits[SI_NEXT],	"clicked",	G_CALLBACK (cb_next), stack);
+	g_signal_connect (searchbits[SI_PREV],	"clicked",	G_CALLBACK (cb_bprev), stack);
+	g_signal_connect (searchbits[SI_NEXT],	"clicked",	G_CALLBACK (cb_bnext), stack);
 
 	g_signal_connect (lastlog, "clicked", G_CALLBACK (cb_lastlog), stack);
 
@@ -359,6 +369,8 @@ example_activated (GtkApplication *app, gpointer user_data) {
 	create_menu_item (smenu, "_Word Wrap",	"app.wrap",	NULL,	"<ctrl><shift>w", NULL);
 	create_menu_item (smenu, "Show _Times",	"app.time",	NULL,	"<ctrl>t",	NULL);
 	create_menu_item (smenu, "_Find",	"app.find",	NULL,	"<ctrl>f",	NULL);
+	create_menu_item (smenu, "Find _Next",	"app.next",	NULL,	"<ctrl>g",	NULL);
+	create_menu_item (smenu, "Find _Previous",	"app.prev",	NULL,	"<ctrl><shift>g",	NULL);
 	create_menu_item (smenu, "Page _Up",	"app.pgup",	NULL,	"<ctrl>Prior",	NULL);
 	create_menu_item (smenu, "Page _Down",	"app.pgdn",	NULL,	"<ctrl>Next",	NULL);
 	create_menu_item (smenu, "_Quit",	"app.quit",	"application-exit",
@@ -383,6 +395,8 @@ example_activated (GtkApplication *app, gpointer user_data) {
 		{"time", cb_time, NULL,  "true", NULL, {0, 0, 0}},
 		{"pgup", cb_pgup, NULL,    NULL, NULL, {0, 0, 0}},
 		{"pgdn", cb_pgdn, NULL,    NULL, NULL, {0, 0, 0}},
+		{"next", cb_next, NULL,    NULL, NULL, {0, 0, 0}},
+		{"prev", cb_prev, NULL,    NULL, NULL, {0, 0, 0}},
 		{"find", cb_find, NULL,    NULL, NULL, {0, 0, 0}},
 	};
 
@@ -391,10 +405,10 @@ example_activated (GtkApplication *app, gpointer user_data) {
 
 	XcChatView *xccv1 = (xc_chat_view_new ());
 	XcChatView *xccv2 = (xc_chat_view_new ());
-//	XcChatView *xccv3 = (xc_chat_view_new ());
+	XcChatView *xccv3 = (xc_chat_view_new ());
 	create_tabs (xccv1, stack, "One");
 	create_tabs (xccv2, stack, "Two");
-//	create_tabs (xccv3, stack, "Three");
+	create_tabs (xccv3, stack, "Three");
 
 	gtk_widget_show_all (win);
 /*
@@ -405,7 +419,7 @@ example_activated (GtkApplication *app, gpointer user_data) {
 */
 	xc_chat_view_set_scrollback_file (xccv1, "text1");
 	xc_chat_view_set_scrollback_file (xccv2, "text2");
-//	xc_chat_view_set_scrollback_file (xccv3, "text3");
+	xc_chat_view_set_scrollback_file (xccv3, "text3");
 }
 
 
