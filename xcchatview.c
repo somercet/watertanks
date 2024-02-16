@@ -96,6 +96,7 @@ xc_chat_view_init (XcChatView *xccv)
   g_mutex_init (&xccv->mutex);
 
   xccv->search_widget = gtk_label_new (NULL);
+  gtk_label_set_width_chars (GTK_LABEL (xccv->search_widget), 9);
   g_object_ref_sink (G_OBJECT (xccv->search_widget));
   xccv->search_label = g_string_new ("---");
   xc_chat_view_update_search_widget (xccv);
