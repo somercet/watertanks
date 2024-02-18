@@ -102,15 +102,14 @@ cb_quit (GSimpleAction *simple, GVariant *parameter, gpointer win) {
 
 static void
 chpg (GtkStack *stack, gboolean up) {
+	XcChatView *xccvold;//, *xccvnew;
 	struct Xccvbit *tab;
 	gboolean got = FALSE,
 		sb_visible = gtk_search_bar_get_search_mode (searchbits[SI_BAR]);
 	GtkWidget *current = gtk_stack_get_visible_child (stack);
 
-	if (sb_visible) {
-		XcChatView *xccvold = get_active_xccv (GTK_STACK (stack));
-		gtk_container_remove (searchbits[SI_LABEL], xccvold->search_widget);
-	}
+	if (sb_visible)
+		xccvold = get_active_xccv (GTK_STACK (stack));
 
 	GList *l;
 	for (l = stakk; l != NULL; ) {
@@ -129,13 +128,16 @@ chpg (GtkStack *stack, gboolean up) {
 		l = l->next;
 	}
 
-	if (sb_visible) {
-		XcChatView *xccvnew = get_active_xccv (GTK_STACK (stack));
-		gtk_box_pack_start (searchbits[SI_LABEL], xccvnew->search_widget, FALSE, FALSE, 0);
-		gtk_widget_show_all (xccvnew->search_widget);
+	if (sb_visible && (xccvold != tab->xccv)) {
+		gtk_widget_show (XC_CHAT_VIEW (tab->xccv)->search_widget);
+		gtk_widget_hide (xccvold->search_widget);
 	}
 }
 
+//static void
+//add_search_result (GtkWidget *label, gpointer stck) {
+//	gtk_box_pack_start (searchbits[SI_LABEL], label, FALSE, FALSE, 2);
+//}
 
 static void
 cb_pgup (GSimpleAction *simple, GVariant *parameter, gpointer stck) {
@@ -157,6 +159,8 @@ create_tabs (XcChatView *xccv, GtkWidget *stack, char *name) {
 	newtab->xccv = xccv;
 	newtab->child = sw;
 	stakk = g_list_append (stakk, newtab);
+
+	gtk_box_pack_start (searchbits[SI_LABEL], xccv->search_widget, FALSE, FALSE, 0);
 }
 
 
@@ -167,12 +171,10 @@ cb_find (GSimpleAction *simple, GVariant *parameter, gpointer stack) {
 	gtk_search_bar_set_search_mode (searchbits[SI_BAR], visible);
 
 	XcChatView *xccv = get_active_xccv (GTK_STACK (stack));
-	if (visible) {
-		gtk_box_pack_start (searchbits[SI_LABEL], xccv->search_widget, FALSE, FALSE, 0);
-		gtk_widget_show_all (xccv->search_widget);
-	}
+	if (visible)
+		gtk_widget_show (xccv->search_widget);
 	else
-		gtk_container_remove (searchbits[SI_LABEL], xccv->search_widget);
+		gtk_widget_hide (xccv->search_widget);
 // gtk_entry_set_icon_from_icon_name (searchbits[SI_ENTRY], GTK_ENTRY_ICON_SECONDARY, "dialog-error");
 }
 
@@ -280,11 +282,8 @@ create_searchbar (GtkWidget *bar, GtkWidget *stack) {
 	g_signal_connect (searchbits[SI_NEXT],	"clicked",	G_CALLBACK (cb_bnext), stack);
 
 	g_signal_connect (lastlog, "clicked", G_CALLBACK (cb_lastlog), stack);
-
-
-
+}
 	//cb_toggled (searchbits[SI_REGEX], stack);
-
 
 /*
 
@@ -320,7 +319,6 @@ xccv needs signal for bar to signal updates. or semaphore? Asynch queue?
 Or just int func return?
 
 */
-}
 
 static void
 cb_time (GSimpleAction *simple, GVariant *parameter, gpointer stack) {
@@ -403,14 +401,20 @@ example_activated (GtkApplication *app, gpointer user_data) {
 	g_action_map_add_action_entries (G_ACTION_MAP (app), wacts, G_N_ELEMENTS (wacts), win);
 	g_action_map_add_action_entries (G_ACTION_MAP (app), sacts, G_N_ELEMENTS (sacts), stack);
 
+	GtkCssProvider *cssProvider = gtk_css_provider_new();
+	gtk_css_provider_load_from_path(cssProvider, "theme.css", NULL);
+	gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
+		GTK_STYLE_PROVIDER(cssProvider), GTK_STYLE_PROVIDER_PRIORITY_USER);
+
+	gtk_widget_show_all (win);
+
 	XcChatView *xccv1 = (xc_chat_view_new ());
 	XcChatView *xccv2 = (xc_chat_view_new ());
 	XcChatView *xccv3 = (xc_chat_view_new ());
 	create_tabs (xccv1, stack, "One");
 	create_tabs (xccv2, stack, "Two");
 	create_tabs (xccv3, stack, "Three");
-
-	gtk_widget_show_all (win);
+	gtk_widget_show_all (stack);
 /*
 	xc_chat_view_set_scrollback_file (xccv3, "rrr");
 	xc_chat_view_set_scrollback_file (xccv3, "foo/rrr");
