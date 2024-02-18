@@ -15,6 +15,14 @@ extern GSettings *settings;
 #else
 #endif
 
+enum {
+	SEARCH_RESULT_CREATED,
+	LAST_SIGNAL
+};
+
+static guint
+xc_chat_view_signals[LAST_SIGNAL] = { 0 };
+
 enum xc_chat_view_properties {
     PROP_STAMP_TEXT = 1,
     PROP_STAMP_TEXT_FORMAT,
@@ -96,17 +104,21 @@ xc_chat_view_init (XcChatView *xccv)
   g_mutex_init (&xccv->mutex);
 
   xccv->search_widget = gtk_label_new (NULL);
+  gtk_widget_set_name (xccv->search_widget, "search_results");
   gtk_label_set_width_chars (GTK_LABEL (xccv->search_widget), 9);
   g_object_ref_sink (G_OBJECT (xccv->search_widget));
   xccv->search_label = g_string_new ("---");
   xc_chat_view_update_search_widget (xccv);
   //xccv->dtformat = g_strdup ("%F");
 
+  g_signal_emit (xccv, xc_chat_view_signals[SEARCH_RESULT_CREATED], 0);
+
 #ifdef USE_GTK3
   g_settings_bind (settings, "stamp-text",        xccv, "stamp-text",        G_SETTINGS_BIND_DEFAULT);
   g_settings_bind (settings, "stamp-text-format", xccv, "stamp-text-format", G_SETTINGS_BIND_GET);
 #else
 #endif
+
 }
 
 
@@ -135,6 +147,17 @@ xc_chat_view_class_init (XcChatViewClass *klass)
     G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
 
   g_object_class_install_properties (gobject_class, PROP_COUNT, xcproperties);
+
+  xc_chat_view_signals[SEARCH_RESULT_CREATED] = g_signal_new("search-result-created",
+	XC_TYPE_CHAT_VIEW,	// G_TYPE_FROM_INSTANCE(xccv),
+	G_SIGNAL_RUN_LAST,
+	0,		// class_offset *fp
+	NULL,		// accumulator
+	NULL,		// accu data
+	NULL,		// GSignalCMarshaller
+	G_TYPE_NONE,	// return type
+	0);		// param #
+		// params G_TYPE_UINT);
 }
 
 
