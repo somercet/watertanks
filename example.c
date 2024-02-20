@@ -17,7 +17,11 @@ Xccvbit {
 	gpointer child;
 };
 
-static XcChatView *Lastlog = NULL;
+static XcChatView *
+Lastlog = NULL;
+
+xc_search_flags
+search_flags = 0;
 
 static gboolean
 searchflags[3];
@@ -134,10 +138,6 @@ chpg (GtkStack *stack, gboolean up) {
 	}
 }
 
-//static void
-//add_search_result (GtkWidget *label, gpointer stck) {
-//	gtk_box_pack_start (searchbits[SI_LABEL], label, FALSE, FALSE, 2);
-//}
 
 static void
 cb_pgup (GSimpleAction *simple, GVariant *parameter, gpointer stck) {
@@ -152,8 +152,8 @@ cb_pgdn (GSimpleAction *simple, GVariant *parameter, gpointer stck) {
 static void
 create_tabs (XcChatView *xccv, GtkWidget *stack, char *name) {
 	GtkWidget *sw = gtk_scrolled_window_new (NULL, NULL);
-	gtk_container_add (GTK_CONTAINER (sw), GTK_WIDGET (xccv->tview));
 	gtk_stack_add_titled (GTK_STACK (stack), sw, name, name);
+	gtk_container_add (GTK_CONTAINER (sw), GTK_WIDGET (xccv->tview));
 
 	struct Xccvbit *newtab = g_new (struct Xccvbit, 1);
 	newtab->xccv = xccv;
@@ -181,10 +181,8 @@ cb_find (GSimpleAction *simple, GVariant *parameter, gpointer stack) {
 static void
 run_search (GtkSearchEntry *entry, gpointer stack) {
 	XcChatView *xccv = get_active_xccv (GTK_STACK (stack));
-	xc_chat_view_run_search (xccv, gtk_entry_get_text (GTK_ENTRY (entry)), 
-		searchflags[SI_ALL], searchflags[SI_CASE], searchflags[SI_REGEX]);
+	xc_chat_view_run_search (xccv, gtk_entry_get_text (GTK_ENTRY (entry)), search_flags);
 //gtk_xtext_search (GTK_XTEXT (sess->gui->xtext), text, flags, &err);
-//xc_search_flags flags);
 }
 
 static void
@@ -220,12 +218,26 @@ cb_toggled (GtkToggleButton *togged, gpointer stack) {
 	for (c = 0; c < 3 ; c++)
 		if (togged == searchbits[c])
 			break;
-	if (c == 3) {
+	if (c == 3) { // just in case...
 		g_printerr ("Error processing search flags: line %d, %s().\n", __LINE__, __FILE__);
 		return;
 	}
+
 	searchflags[c] = gtk_toggle_button_get_active (searchbits[c]);
-	run_search (searchbits[SI_ENTRY], stack);
+
+	if (c == 1) {
+		if (searchflags[1])
+			gtk_button_set_label (GTK_BUTTON (togged), "a≠A");
+		else
+			gtk_button_set_label (GTK_BUTTON (togged), "a=A");
+	}
+
+	search_flags =	( searchflags[0] ? regexp     : 0 ) |
+			( searchflags[1] ? case_match : 0 ) |
+			( searchflags[2] ? highlight  : 0 ) ;
+
+	if (c != 2) // no highlight for now
+		run_search (searchbits[SI_ENTRY], stack);
 }
 
 static void
@@ -286,8 +298,6 @@ create_searchbar (GtkWidget *bar, GtkWidget *stack) {
 	//cb_toggled (searchbits[SI_REGEX], stack);
 
 /*
-
-duh, make xccv create a label, and put that in the search bar.
 
 activate-current-link
 Applications may also emit the signal with g_signal_emit_by_name()
