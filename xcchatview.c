@@ -708,10 +708,13 @@ static void
 xc_chat_view_clear_search (XcChatView *xccv) {
 	g_string_assign (xccv->search_label, "---");
 	xc_chat_view_update_search_widget (xccv);
+	g_free (xccv->search_text);
 	if (xccv->search_paths)
 		g_list_free_full (xccv->search_paths, (GDestroyNotify) gtk_tree_path_free);
+	xccv->search_text = NULL;
 	xccv->search_paths = NULL;
 	xccv->search_current = NULL;
+	xccv->search_flags = 0;
 }
 
 static void
@@ -729,7 +732,7 @@ xc_chat_view_run_search (XcChatView *xccv, const gchar *stext, xc_search_flags f
 	GDateTime *gd;
 	GtkTreeIter iter;
 	gboolean valid;
-	gchar *dt_str, *h, *m;
+	gchar *dt_str, *h, *m, *temp;
 
 	if (xccv->search_paths != NULL)
 		xc_chat_view_clear_search (xccv);
@@ -741,13 +744,28 @@ xc_chat_view_run_search (XcChatView *xccv, const gchar *stext, xc_search_flags f
 		return;
 	}
 
-	if (! gtk_tree_model_get_iter_first (model, &iter)) {
+	/* massage data start */
+	if (flags & highlight) // ignore for now
+		;
+
+	if (flags & case_match)
+		xccv->search_text = g_strdup (stext);
+	else
+		xccv->search_text = g_utf8_casefold (stext, -1);
+
+	if (flags & regexp)
+		;
+	/* massage data end */
+
+	xccv->search_flags = flags;
+
+	if (gtk_tree_model_get_iter_first (model, &iter)) {
+		xccv->search_total = 0;
+		xccv->search_now = 0;
+	} else {
 		g_string_assign (xccv->search_label, "---");
 		xc_chat_view_update_search_widget (xccv);
 		return;
-	} else {
-		xccv->search_total = 0;
-		xccv->search_now = 0;
 	}
 
 	do {
@@ -761,7 +779,13 @@ xc_chat_view_run_search (XcChatView *xccv, const gchar *stext, xc_search_flags f
 
 		g_string_append_printf (hold, "%s %s %s", dt_str, h, m);
 
-		if (strstr (hold->str, stext)) {
+		if (! flags & case_match) {
+			temp = g_utf8_casefold (hold->str, -1);
+			g_string_assign (hold, temp);
+			g_free (temp);
+		}
+
+		if (strstr (hold->str, xccv->search_text)) {
 			GtkTreePath *path = gtk_tree_model_get_path (model, &iter);
 			xccv->search_paths = g_list_prepend (xccv->search_paths, path);
 			xccv->search_total++;

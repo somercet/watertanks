@@ -224,11 +224,20 @@ cb_toggled (GtkToggleButton *togged, gpointer stack) {
 	}
 
 	searchflags[c] = gtk_toggle_button_get_active (searchbits[c]);
-	search_flags =  ( searchflags[0] ? regexp     : 0 ) |
-			( searchflags[1] ? case_match : 0 ) |
-			( searchflags[2] ? highlight  : 0 );
 
-	run_search (searchbits[SI_ENTRY], stack);
+	if (c == 1) {
+		if (searchflags[1])
+			gtk_button_set_label (GTK_BUTTON (togged), "a≠A");
+		else
+			gtk_button_set_label (GTK_BUTTON (togged), "a=A");
+	}
+
+	search_flags =	( searchflags[0] ? regexp     : 0 ) |
+			( searchflags[1] ? case_match : 0 ) |
+			( searchflags[2] ? highlight  : 0 ) ;
+
+	if (c != 2) // no highlight for now
+		run_search (searchbits[SI_ENTRY], stack);
 }
 
 static void
