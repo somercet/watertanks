@@ -81,7 +81,6 @@ xc_chat_view_init (XcChatView *xccv)
   g_object_ref_sink (xccv->cell_td);
   g_object_ref_sink (xccv->cell_hn);
   g_object_ref_sink (xccv->cell_ms);
-  //  g_object_ref_sink (xccv->store);
   g_object_ref_sink (xccv->tview);
 /*
   GdkRGBA foo = { 0.0, 0.0, 0.0, 0.0 }; // { R, G, B, A } 0.0 to 1.0 double
@@ -109,10 +108,13 @@ xc_chat_view_init (XcChatView *xccv)
   g_object_ref_sink (G_OBJECT (xccv->search_widget));
   xccv->search_label = g_string_new ("---");
   xc_chat_view_update_search_widget (xccv);
-  //xccv->dtformat = g_strdup ("%F");
+
+/*
+  Search signals and GSettings not used for now.
 
   g_signal_emit (xccv, xc_chat_view_signals[SEARCH_RESULT_CREATED], 0);
 
+*/
 #ifdef USE_GTK3
   g_settings_bind (settings, "stamp-text",        xccv, "stamp-text",        G_SETTINGS_BIND_DEFAULT);
   g_settings_bind (settings, "stamp-text-format", xccv, "stamp-text-format", G_SETTINGS_BIND_GET);
@@ -147,6 +149,10 @@ xc_chat_view_class_init (XcChatViewClass *klass)
     G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
 
   g_object_class_install_properties (gobject_class, PROP_COUNT, xcproperties);
+
+/*
+  Not doing search results this way, for now.
+*/
 
   xc_chat_view_signals[SEARCH_RESULT_CREATED] = g_signal_new("search-result-created",
 	XC_TYPE_CHAT_VIEW,	// G_TYPE_FROM_INSTANCE(xccv),
@@ -225,7 +231,8 @@ xc_chat_view_dispose (GObject *object)
     xccv->search_paths = NULL;
   }
   g_string_free (xccv->search_label, TRUE);
-  g_clear_object (&xccv->search_widget);
+  gtk_widget_destroy (xccv->search_widget);
+  xccv->search_widget = NULL;
 
   G_OBJECT_CLASS (xc_chat_view_parent_class)->dispose (object);
 }
@@ -712,8 +719,10 @@ xc_chat_view_update_search_widget (XcChatView *xccv) {
 	gtk_label_set_text (GTK_LABEL (xccv->search_widget), xccv->search_label->str);
 }
 
+/* Nothing else calls search_handle_event() so we don't need
+to process the PREV/NEXT buttons through this func. */
 void
-xc_chat_view_run_search (XcChatView *xccv, const gchar *stext, gboolean all, gboolean icase, gboolean regex) {
+xc_chat_view_run_search (XcChatView *xccv, const gchar *stext, xc_search_flags flags) {
 	//GtkTreeModel *model = gtk_tree_view_get_model (xccv->tview);
 	GtkTreeModel *model = GTK_TREE_MODEL (xccv->store);
 	GString *hold = g_string_sized_new (1024);
