@@ -699,8 +699,8 @@ xc_chat_view_set_scrollback_file (XcChatView *xccv, gchar *filename)
    GList	*search_current;
    guint	search_total;
    guint	search_now;
-   GtkLabel	*search_widget; 
-   GString	*search_label; 
+   GtkLabel	*search_widget;
+   GString	*search_label;
    xc_search_flags       flags;
 */
 
