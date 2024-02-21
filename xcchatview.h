@@ -93,8 +93,8 @@ struct _XcChatView
   GList	*search_current;
   GtkWidget	*search_widget;
   GString	*search_label;
-  guint	search_total; 
-  guint	search_now; 
+  guint	search_total;
+  guint	search_now;
   xc_search_flags	search_flags;
 
   GMutex	mutex;

@@ -225,8 +225,8 @@ cb_toggled (GtkToggleButton *togged, gpointer stack) {
 
 	searchflags[c] = gtk_toggle_button_get_active (searchbits[c]);
 
-	if (c == 1) {
-		if (searchflags[1])
+	if (c == SI_CASE) {
+		if (searchflags[SI_CASE])
 			gtk_button_set_label (GTK_BUTTON (togged), "a≠A");
 		else
 			gtk_button_set_label (GTK_BUTTON (togged), "a=A");
@@ -236,7 +236,7 @@ cb_toggled (GtkToggleButton *togged, gpointer stack) {
 			( searchflags[1] ? case_match : 0 ) |
 			( searchflags[2] ? highlight  : 0 ) ;
 
-	if (c != 2) // no highlight for now
+	if (c != SI_ALL) // no highlight for now
 		run_search (searchbits[SI_ENTRY], stack);
 }
 
@@ -316,7 +316,7 @@ stack runs the search entry and label, and a timer to update the label.
 xccv runs the search and updates the search info {
 guint search_item
 guint total_found
-bool search_running 
+bool search_running
 char search_flags }
 
 global pointer array for stack to use searchbar
