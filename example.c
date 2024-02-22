@@ -180,9 +180,15 @@ cb_find (GSimpleAction *simple, GVariant *parameter, gpointer stack) {
 
 static void
 run_search (GtkSearchEntry *entry, gpointer stack) {
+	GError *err = NULL;
+
 	XcChatView *xccv = get_active_xccv (GTK_STACK (stack));
-	xc_chat_view_run_search (xccv, gtk_entry_get_text (GTK_ENTRY (entry)), search_flags);
-//gtk_xtext_search (GTK_XTEXT (sess->gui->xtext), text, flags, &err);
+	xc_chat_view_run_search (xccv, gtk_entry_get_text (GTK_ENTRY (entry)), search_flags, &err);
+
+	if (err) {
+		g_print ("Search error: %s\n", err->message);
+		g_error_free (err);
+	}
 }
 
 static void
@@ -232,9 +238,9 @@ cb_toggled (GtkToggleButton *togged, gpointer stack) {
 			gtk_button_set_label (GTK_BUTTON (togged), "a=A");
 	}
 
-	search_flags =	( searchflags[0] ? regexp     : 0 ) |
-			( searchflags[1] ? case_match : 0 ) |
-			( searchflags[2] ? highlight  : 0 ) ;
+	search_flags =	( searchflags[0] ? SF_REGEXP     : 0 ) |
+			( searchflags[1] ? SF_CASE_MATCH : 0 ) |
+			( searchflags[2] ? SF_HIGHLIGHT  : 0 ) ;
 
 	if (c != SI_ALL) // no highlight for now
 		run_search (searchbits[SI_ENTRY], stack);

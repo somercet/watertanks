@@ -708,13 +708,22 @@ static void
 xc_chat_view_clear_search (XcChatView *xccv) {
 	g_string_assign (xccv->search_label, "---");
 	xc_chat_view_update_search_widget (xccv);
-	g_free (xccv->search_text);
-	if (xccv->search_paths)
+	if (xccv->search_text) {
+		g_free (xccv->search_text);
+		xccv->search_text = NULL;
+	}
+	if (xccv->search_paths) {
 		g_list_free_full (xccv->search_paths, (GDestroyNotify) gtk_tree_path_free);
-	xccv->search_text = NULL;
-	xccv->search_paths = NULL;
+		xccv->search_paths = NULL;
+	}
+	if (xccv->search_regex) {
+		g_regex_unref (xccv->search_regex);
+		xccv->search_regex = NULL;
+	}
 	xccv->search_current = NULL;
 	xccv->search_flags = 0;
+	xccv->search_total = 0;
+	xccv->search_now = 0;
 }
 
 static void
@@ -725,7 +734,7 @@ xc_chat_view_update_search_widget (XcChatView *xccv) {
 /* Nothing else calls search_handle_event() so we don't need
 to process the PREV/NEXT buttons through this func. */
 void
-xc_chat_view_run_search (XcChatView *xccv, const gchar *stext, xc_search_flags flags) {
+xc_chat_view_run_search (XcChatView *xccv, const gchar *stext, xc_search_flags flags, GError **serr) {
 	//GtkTreeModel *model = gtk_tree_view_get_model (xccv->tview);
 	GtkTreeModel *model = GTK_TREE_MODEL (xccv->store);
 	GString *hold = g_string_sized_new (1024);
@@ -734,9 +743,6 @@ xc_chat_view_run_search (XcChatView *xccv, const gchar *stext, xc_search_flags f
 	gboolean valid;
 	gchar *dt_str, *h, *m, *temp;
 
-	if (xccv->search_paths != NULL)
-		xc_chat_view_clear_search (xccv);
-
 	if (stext[0] == '\0') {
 		gtk_tree_selection_unselect_all (xccv->select);
 		g_string_assign (xccv->search_label, "---");
@@ -744,32 +750,41 @@ xc_chat_view_run_search (XcChatView *xccv, const gchar *stext, xc_search_flags f
 		return;
 	}
 
-	/* massage data start */
-	if (flags & highlight) // ignore for now
-		;
+	if (g_strcmp0 (xccv->search_text, stext) == 0 && flags == xccv->search_flags)
+		return;
 
-	if (flags & case_match)
+	if (xccv->search_paths || xccv->search_text)
+		xc_chat_view_clear_search (xccv);
+
+	/* flag massage start */
+	if (flags & SF_REGEXP) {
+		xccv->search_regex = g_regex_new (stext, (flags & SF_CASE_MATCH) ? 0 : G_REGEX_CASELESS,
+						  G_REGEX_MATCH_NOTEMPTY, serr);
+		if (*serr)
+			return;
+		xccv->search_text = g_strdup (stext);
+	} else if (flags & SF_CASE_MATCH)
 		xccv->search_text = g_strdup (stext);
 	else
 		xccv->search_text = g_utf8_casefold (stext, -1);
 
-	if (flags & regexp)
+	if (flags & SF_HIGHLIGHT) // ignore for now
 		;
-	/* massage data end */
+	/* flag massage end */
 
-	xccv->search_flags = flags;
-
-	if (gtk_tree_model_get_iter_first (model, &iter)) {
-		xccv->search_total = 0;
-		xccv->search_now = 0;
-	} else {
+	if (! gtk_tree_model_get_iter_first (model, &iter)) {
 		g_string_assign (xccv->search_label, "---");
 		xc_chat_view_update_search_widget (xccv);
 		return;
 	}
 
+	xccv->search_flags = flags;
+
 	do {
+		GMatchInfo *gmi = NULL;
 		dt_str = "";
+
+
 		gtk_tree_model_get (model, &iter,
 				SFS_GDTIME, &gd,
 				SFS_HANDLE, &h,
@@ -779,13 +794,14 @@ xc_chat_view_run_search (XcChatView *xccv, const gchar *stext, xc_search_flags f
 
 		g_string_append_printf (hold, "%s %s %s", dt_str, h, m);
 
-		if (! flags & case_match) {
+		if (!( flags & SF_CASE_MATCH) && !( flags & SF_REGEXP)) {
 			temp = g_utf8_casefold (hold->str, -1);
 			g_string_assign (hold, temp);
 			g_free (temp);
 		}
 
-		if (strstr (hold->str, xccv->search_text)) {
+		if ((flags & SF_REGEXP && g_regex_match (xccv->search_regex, hold->str, 0, &gmi))
+			|| (strstr (hold->str, xccv->search_text))) {
 			GtkTreePath *path = gtk_tree_model_get_path (model, &iter);
 			xccv->search_paths = g_list_prepend (xccv->search_paths, path);
 			xccv->search_total++;
@@ -799,6 +815,8 @@ xc_chat_view_run_search (XcChatView *xccv, const gchar *stext, xc_search_flags f
 		g_free (h);
 		g_free (m);
 		g_string_truncate(hold, 0);
+		if (gmi)
+			g_match_info_free (gmi);
 
 		valid = gtk_tree_model_iter_next(model, &iter);
 	} while (valid);
