@@ -33,11 +33,11 @@ typedef struct _XcChatView	XcChatView;
 typedef struct _XcChatViewClass	XcChatViewClass;
 
 typedef enum xc_search_flags_e {
-	case_match = 1,
-	backward = 2,
-	highlight = 4,
-	follow = 8,
-	regexp = 16
+	SF_CASE_MATCH = 1,
+	SF_BACKWARD = 2,
+	SF_HIGHLIGHT = 4,
+	SF_FOLLOW = 8,
+	SF_REGEXP = 16
 } xc_search_flags;
 
 typedef enum marker_reset_reason_e {
@@ -91,6 +91,7 @@ struct _XcChatView
   gchar	*search_text;
   GList	*search_paths;
   GList	*search_current;
+  GRegex	*search_regex;
   GtkWidget	*search_widget;
   GString	*search_label;
   guint	search_total;
@@ -232,7 +233,8 @@ void xc_chat_view_save (	XcChatView	*xccv,
 // textentry *gtk_xtext_search (GtkXText * xtext, const gchar *text, gtk_xtext_search_flags flags, GError **err);
 void xc_chat_view_run_search (	XcChatView	*xccv,
 				const gchar	*search_text,
-				xc_search_flags	flags );
+				xc_search_flags	flags,
+				GError		**serr );
 
 void xc_chat_view_next_search (	XcChatView	*xccv,
 				gboolean	direction );
