@@ -856,9 +856,12 @@ xc_chat_view_next_search (XcChatView *xccv, gboolean direction) {
 	}
 }
 
+// common/outbound.c:lastlog (session *sess, char *search, gtk_xtext_search_flags flags)
+// fe-gtk.c:fe_lastlog (session *sess, session *lastlog_sess, char *sstr, gtk_xtext_search_flags flags)
+
 /* fe-gtk.c doesn't even check the return value. */
 void
-xc_chat_view_lastlog (XcChatView *xccv, const gchar *text, XcChatView *target) {
+xc_chat_view_lastlog (XcChatView *xccv, XcChatView *target, const gchar *text, xc_search_flags flags) {
 	GtkTreeModel *model = GTK_TREE_MODEL (xccv->store);
 	GString *hold = g_string_sized_new (1024);
 	GDateTime *gd;

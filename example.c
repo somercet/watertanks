@@ -91,8 +91,18 @@ cb_copy (GSimpleAction *simple, GVariant *parameter, gpointer stck) {
 
 static void
 example_destroy (GtkWidget *win, gpointer app) {
+	struct Xccvbit *tab;
+
 	g_settings_sync ();
 	g_object_unref (settings);
+
+	GList *l;
+	for (l = stakk; l != NULL; l = l->next) {
+		tab = l->data;
+		g_object_unref (tab->xccv);
+		gtk_widget_destroy (tab->child);
+	}
+
 	g_application_quit (G_APPLICATION (app));
 }
 
@@ -238,9 +248,9 @@ cb_toggled (GtkToggleButton *togged, gpointer stack) {
 			gtk_button_set_label (GTK_BUTTON (togged), "a=A");
 	}
 
-	search_flags =	( searchflags[0] ? SF_REGEXP     : 0 ) |
-			( searchflags[1] ? SF_CASE_MATCH : 0 ) |
-			( searchflags[2] ? SF_HIGHLIGHT  : 0 ) ;
+	search_flags =	( searchflags[SI_REGEX] ? SF_REGEXP     : 0 ) |
+			( searchflags[SI_CASE]  ? SF_CASE_MATCH : 0 ) |
+			( searchflags[SI_ALL]   ? SF_HIGHLIGHT  : 0 ) ;
 
 	if (c != SI_ALL) // no highlight for now
 		run_search (searchbits[SI_ENTRY], stack);
@@ -255,7 +265,7 @@ cb_lastlog (GtkButton *togged, gpointer stack) {
 		create_tabs (Lastlog, GTK_WIDGET (stack), "Lastlog");
 		gtk_widget_show_all (stack);
 	}
-	xc_chat_view_lastlog (xccv, gtk_entry_get_text (searchbits[SI_ENTRY]), Lastlog);
+	xc_chat_view_lastlog (xccv, Lastlog, gtk_entry_get_text (searchbits[SI_ENTRY]), search_flags);
 }
 
 static void
@@ -358,6 +368,23 @@ cb_wrap (GSimpleAction *simple, GVariant *parameter, gpointer stack) {
 	xc_chat_view_set_wordwrap (xccv, !flag);
 }
 
+static void
+cb_clos (GSimpleAction *simple, GVariant *parameter, gpointer stack) {
+	struct Xccvbit *tab;
+	GtkWidget *current = gtk_stack_get_visible_child (stack);
+
+	GList *l;
+	for (l = stakk; l != NULL; l = l->next) {
+		tab = l->data;
+		if (current == tab->child) {
+			g_object_unref (tab->xccv);
+			gtk_widget_destroy (tab->child);
+			g_free (l->data);
+			stakk = g_list_delete_link (stakk, l);
+		}
+	}
+}
+
 /* static void
 example_started (GtkApplication *app, gpointer user_data) {
 	if (gtk_application_prefers_app_menu (app))
@@ -387,6 +414,7 @@ example_activated (GtkApplication *app, gpointer user_data) {
 	create_menu_item (smenu, "Find _Previous",	"app.prev",	NULL,	"<ctrl><shift>g",	NULL);
 	create_menu_item (smenu, "Page _Up",	"app.pgup",	NULL,	"<ctrl>Prior",	NULL);
 	create_menu_item (smenu, "Page _Down",	"app.pgdn",	NULL,	"<ctrl>Next",	NULL);
+	create_menu_item (smenu, "C_lose",	"app.clos",	NULL,	"<ctrl>w",	NULL);
 	create_menu_item (smenu, "_Quit",	"app.quit",	"application-exit",
 									"<ctrl>q",	NULL);
 	g_menu_append_submenu (mmenu, "E_xample", G_MENU_MODEL (smenu));
@@ -407,10 +435,11 @@ example_activated (GtkApplication *app, gpointer user_data) {
 		{"copy", cb_copy, NULL,    NULL, NULL, {0, 0, 0}},
 		{"wrap", cb_wrap, NULL, "false", NULL, {0, 0, 0}},
 		{"time", cb_time, NULL,  "true", NULL, {0, 0, 0}},
-		{"pgup", cb_pgup, NULL,    NULL, NULL, {0, 0, 0}},
-		{"pgdn", cb_pgdn, NULL,    NULL, NULL, {0, 0, 0}},
 		{"next", cb_next, NULL,    NULL, NULL, {0, 0, 0}},
 		{"prev", cb_prev, NULL,    NULL, NULL, {0, 0, 0}},
+		{"pgup", cb_pgup, NULL,    NULL, NULL, {0, 0, 0}},
+		{"pgdn", cb_pgdn, NULL,    NULL, NULL, {0, 0, 0}},
+		{"clos", cb_clos, NULL,    NULL, NULL, {0, 0, 0}},
 		{"find", cb_find, NULL,    NULL, NULL, {0, 0, 0}},
 	};
 
