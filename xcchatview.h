@@ -240,8 +240,9 @@ void xc_chat_view_next_search (	XcChatView	*xccv,
 				gboolean	direction );
 
 void xc_chat_view_lastlog (	XcChatView	*xccv,
+				XcChatView	*target,
 				const gchar	*text,
-				XcChatView	*target );
+				xc_search_flags	flags );
 
 /*
 hexchat/src/common/outbound.c
