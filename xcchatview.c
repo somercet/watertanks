@@ -48,7 +48,9 @@ static void	xc_chat_view_update_line_count (XcChatView *xccv, gint lines);
 static void	xc_chat_view_set_wordwrap_real (XcChatView *xccv);
 static void	xc_chat_view_clear_search (XcChatView *xccv);
 static void	xc_chat_view_update_search_widget (XcChatView *xccv);
-
+static void	tview_reparented (GtkWidget *tview, GtkWidget *old_parent, gpointer us);
+static gboolean	is_scrolled_down (XcChatView *xccv);
+static void	push_down_scrollbar (XcChatView *xccv);
 
 G_DEFINE_TYPE(XcChatView, xc_chat_view, G_TYPE_OBJECT)
 
@@ -66,6 +68,10 @@ static void
 xc_chat_view_init (XcChatView *xccv)
 {
   /* initialisation goes here */
+  xccv->parent_widget = NULL;
+  xccv->parent_reparent_cb_id = 0;
+  xccv->parent_vadj = NULL;
+
   xccv->cell_td = gtk_cell_renderer_text_new ();
   xccv->cell_hn = gtk_cell_renderer_text_new ();
   xccv->cell_ms = gtk_cell_renderer_text_new ();
@@ -121,6 +127,7 @@ xc_chat_view_init (XcChatView *xccv)
 #else
 #endif
 
+  xccv->parent_reparent_cb_id = g_signal_connect (xccv->tview, "parent-set", G_CALLBACK (tview_reparented), xccv);
 }
 
 
@@ -212,6 +219,8 @@ xc_chat_view_dispose (GObject *object)
 {
   XcChatView *xccv = XC_CHAT_VIEW (object);
 
+  if (GTK_IS_TREE_VIEW (xccv->tview))
+	gtk_widget_destroy (GTK_WIDGET (xccv->tview));
   g_clear_object (&xccv->tview);
   g_clear_object (&xccv->store);
   g_clear_object (&xccv->cell_td);
@@ -278,6 +287,9 @@ xc_chat_view_append_indent (XcChatView *xccv,
 {
   GDateTime	*gdt;
   GtkTreeIter	iter;
+  gboolean	down;
+
+  down = is_scrolled_down (xccv);
 
   gdt = g_date_time_new_from_unix_local (stamp); // expects gint64
 
@@ -292,6 +304,9 @@ xc_chat_view_append_indent (XcChatView *xccv,
     -1);
 
   xc_chat_view_update_line_count (xccv, 1);
+
+  if (down)
+    push_down_scrollbar (xccv);
 
   g_date_time_unref (gdt);
 }
@@ -317,6 +332,9 @@ xc_chat_view_append0 (	XcChatView	*xccv,
 			gchar		*handle,
 			gchar		*message ) {
   GtkTreeIter	iter;
+  gboolean	down;
+
+  down = is_scrolled_down (xccv);
 
   gtk_list_store_append (xccv->store, &iter);
   gtk_list_store_set (xccv->store, &iter,
@@ -326,6 +344,9 @@ xc_chat_view_append0 (	XcChatView	*xccv,
     -1);
 
   xc_chat_view_update_line_count (xccv, 1);
+
+  if (down)
+    push_down_scrollbar (xccv);
 }
 
 
@@ -591,6 +612,7 @@ xc_chat_view_load_scrollback_finish (GObject *sobj, GAsyncResult *res, gpointer 
 		g_string_free (msg, TRUE);
 	}
 
+	push_down_scrollbar (xccv);
 	g_object_unref (task);
 }
 
@@ -901,29 +923,61 @@ xc_chat_view_lastlog (XcChatView *xccv, XcChatView *target, const gchar *text, x
 	return;
 }
 
-/*
-Abandoned attempt to get auto resizing of wordwrap.  May come in handy later.
-
-static void	xc_chat_view_resizing (GtkWidget *scrolledw, GdkRectangle *alloc, gpointer us);
-static void	xc_chat_view_reparented (GtkWidget *tview, GtkWidget *old_parent, gpointer us);
-
-
-  g_signal_connect(xccv->tview, "parent-set", G_CALLBACK (xc_chat_view_reparented), xccv);
-
-
 static void
-xc_chat_view_reparented (GtkWidget *tview, GtkWidget *old_parent, gpointer us) {
+tview_reparented (GtkWidget *tview, GtkWidget *old_parent, gpointer us) {
 	XcChatView *xccv = XC_CHAT_VIEW (us);
 
-	if (old_parent)
-		g_signal_handler_disconnect (xccv->parent_widget, xccv->parent_widget_cb_id);
 	xccv->parent_widget = gtk_widget_get_parent (GTK_WIDGET (xccv->tview));
-	// gtk_widget_get_window (GTK_WIDGET (xccv->tview));
+
+	if (!xccv->parent_widget) {
+		xccv->parent_vadj = NULL;
+		return;
+	}
+	if (xccv->parent_widget && GTK_IS_SCROLLED_WINDOW (xccv->parent_widget))
+		xccv->parent_vadj = gtk_scrolled_window_get_vadjustment (GTK_SCROLLED_WINDOW (xccv->parent_widget));
+}
+
+static gboolean
+is_scrolled_down (XcChatView *xccv) {
+	gdouble page_size = gtk_adjustment_get_page_size (xccv->parent_vadj);
+	if (page_size == 0.0)
+		return TRUE; // not scrolling yet ... I think.
+	gdouble value = gtk_adjustment_get_value (xccv->parent_vadj);
+	gdouble upper = gtk_adjustment_get_upper (xccv->parent_vadj);
+
+	if (value <= upper - page_size)
+		return TRUE;
+	else
+		return FALSE;
+}
+
+static void
+push_down_scrollbar (XcChatView *xccv) {
+	gdouble page_size = gtk_adjustment_get_page_size (xccv->parent_vadj);
+	gdouble upper = gtk_adjustment_get_upper (xccv->parent_vadj);
+
+	gtk_adjustment_set_value (xccv->parent_vadj, upper - page_size);
+}
+
+
+/*
+xccv->parent_reparent_cb_id = g_signal_connect(xccv->parent_vadj, "changed", G_CALLBACK(on_adjustment_changed), xccv);
+
+	if (old_parent && xccv->parent_reparent_cb_id != 0) {
+		g_signal_handler_disconnect (xccv->tview, xccv->parent_reparent_cb_id);
+		xccv->parent_reparent_cb_id = 0;
+	}
+		// xccv->parent_reparent_cb_id =
+			// g_signal_connect (xccv->tview, "parent-set", G_CALLBACK (xc_chat_view_reparented), xccv);
 	if (xccv->parent_widget) {
 		xccv->parent_widget_cb_id = g_signal_connect (xccv->parent_widget,
 				"size-allocate", G_CALLBACK(xc_chat_view_resizing), xccv);
-}}
+	}
 
+
+Abandoned attempt to get auto resizing of wordwrap.  May come in handy later.
+
+static void	xc_chat_view_resizing (GtkWidget *scrolledw, GdkRectangle *alloc, gpointer us);
 
 static void
 xc_chat_view_resizing (GtkWidget *scrolledw, GdkRectangle *alloc, gpointer us) {

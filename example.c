@@ -99,8 +99,8 @@ example_destroy (GtkWidget *win, gpointer app) {
 	GList *l;
 	for (l = stakk; l != NULL; l = l->next) {
 		tab = l->data;
-		g_object_unref (tab->xccv);
 		gtk_widget_destroy (tab->child);
+		g_object_unref (tab->xccv);
 	}
 
 	g_application_quit (G_APPLICATION (app));
