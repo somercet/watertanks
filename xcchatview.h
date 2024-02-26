@@ -73,7 +73,8 @@ struct _XcChatView
   GtkClipboard	*clippy;
   //GtkWindow	*parent_widget;
   GtkWidget	*parent_widget;
-  gulong	parent_widget_cb_id;
+  gulong	parent_reparent_cb_id;
+  GtkAdjustment	*parent_vadj;
 
   GtkTreeSelection	*select;
   GtkCellRenderer	*cell_td, *cell_hn, *cell_ms;
@@ -99,6 +100,7 @@ struct _XcChatView
   xc_search_flags	search_flags;
 
   GMutex	mutex;
+
   /* Private */
 };
 
