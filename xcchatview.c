@@ -10,11 +10,7 @@
 #include "xcchatview.h"
 #endif
 
-#ifdef USE_GTK3
-extern GSettings *settings;
-#else
-#endif
-
+/*
 enum {
 	SEARCH_RESULT_CREATED,
 	LAST_SIGNAL
@@ -22,14 +18,7 @@ enum {
 
 static guint
 xc_chat_view_signals[LAST_SIGNAL] = { 0 };
-
-enum xc_chat_view_properties {
-    PROP_STAMP_TEXT = 1,
-    PROP_STAMP_TEXT_FORMAT,
-    PROP_COUNT
-};
-
-static GParamSpec *xcproperties[PROP_COUNT] = { NULL, };
+*/
 
 /* static func declarations */
 static void	cell_func_dtime (	GtkTreeViewColumn	*tree_column,
@@ -40,8 +29,6 @@ static void	cell_func_dtime (	GtkTreeViewColumn	*tree_column,
 static void	xc_chat_view_init (	XcChatView		*xccv );
 static void	xc_chat_view_class_init	(XcChatViewClass	*class );
 static void	xc_chat_view_dispose (	GObject			*object );
-static void	xc_chat_view_set_property (GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec);
-static void	xc_chat_view_get_property (GObject *object, guint prop_id, GValue *value, GParamSpec *pspec);
 static void	xc_chat_view_load_scrollback_finish (GObject *sourceobject, GAsyncResult *result, gpointer userdata);
 static void	xc_chat_view_load_scrollback_run (GTask *task, gpointer sobj, gpointer ud_file, GCancellable *cancellable);
 static void	xc_chat_view_update_line_count (XcChatView *xccv, gint lines);
@@ -67,6 +54,8 @@ xc_chat_view_new (void)
 static void
 xc_chat_view_init (XcChatView *xccv)
 {
+  xccv->dtformat = g_strdup ("%H:%M:%S");
+
   /* initialisation goes here */
   xccv->parent_widget = NULL;
   xccv->parent_reparent_cb_id = 0;
@@ -105,6 +94,7 @@ xc_chat_view_init (XcChatView *xccv)
 
   xccv->lines_max = 1000;
   xccv->lines_current = 0;
+  xccv->timestamps = TRUE;
 
   g_mutex_init (&xccv->mutex);
 
@@ -114,18 +104,6 @@ xc_chat_view_init (XcChatView *xccv)
   g_object_ref_sink (G_OBJECT (xccv->search_widget));
   xccv->search_label = g_string_new ("---");
   xc_chat_view_update_search_widget (xccv);
-
-/*
-  Search signals and GSettings not used for now.
-
-  g_signal_emit (xccv, xc_chat_view_signals[SEARCH_RESULT_CREATED], 0);
-
-*/
-#ifdef USE_GTK3
-  g_settings_bind (settings, "stamp-text",        xccv, "stamp-text",        G_SETTINGS_BIND_DEFAULT);
-  g_settings_bind (settings, "stamp-text-format", xccv, "stamp-text-format", G_SETTINGS_BIND_GET);
-#else
-#endif
 
   xccv->parent_reparent_cb_id = g_signal_connect (xccv->tview, "parent-set", G_CALLBACK (tview_reparented), xccv);
 }
@@ -138,29 +116,10 @@ xc_chat_view_class_init (XcChatViewClass *klass)
 
   /* virtual function overrides go here */
   gobject_class->dispose = xc_chat_view_dispose;
-  gobject_class->get_property = xc_chat_view_get_property;
-  gobject_class->set_property = xc_chat_view_set_property;
 
   /* property and signal definitions go here */
-  xcproperties[PROP_STAMP_TEXT] = g_param_spec_boolean (
-    "stamp-text",				// name
-    "Enable timestamps",			// nickname
-    "Show timestamps in chat windows.",		// description
-    FALSE,					// Default value
-    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
-  xcproperties[PROP_STAMP_TEXT_FORMAT] = g_param_spec_string (
-    "stamp-text-format",			// name
-    "Timestamp format",				// nickname
-    "See the strftime manpage for details.",	// description
-    "%I%M%S",					// Default value
-    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
-
-  g_object_class_install_properties (gobject_class, PROP_COUNT, xcproperties);
 
 /*
-  Not doing search results this way, for now.
-*/
-
   xc_chat_view_signals[SEARCH_RESULT_CREATED] = g_signal_new("search-result-created",
 	XC_TYPE_CHAT_VIEW,	// G_TYPE_FROM_INSTANCE(xccv),
 	G_SIGNAL_RUN_LAST,
@@ -171,46 +130,7 @@ xc_chat_view_class_init (XcChatViewClass *klass)
 	G_TYPE_NONE,	// return type
 	0);		// param #
 		// params G_TYPE_UINT);
-}
-
-
-static void
-xc_chat_view_set_property (GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec) {
-  XcChatView *xccv = XC_CHAT_VIEW (object);
-
-  switch (prop_id) {
-    case PROP_STAMP_TEXT:
-      xccv->timestamps = g_value_get_boolean(value);
-      xc_chat_view_set_time_stamp (xccv, xccv->timestamps);
-      break;
-    case PROP_STAMP_TEXT_FORMAT:
-      if (xccv->dtformat)
-        g_free (xccv->dtformat);
-      xccv->dtformat = g_value_dup_string (value);
-      gtk_tree_view_column_queue_resize (gtk_tree_view_get_column (xccv->tview, TVC_TIMED));
-      break;
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (xccv, prop_id, pspec);
-      break;
-  }
-}
-
-
-static void
-xc_chat_view_get_property (GObject *object, guint prop_id, GValue *value, GParamSpec *pspec) {
-  XcChatView *xccv = XC_CHAT_VIEW (object);
-
-  switch (prop_id) {
-    case PROP_STAMP_TEXT:
-      g_value_set_boolean (value, xccv->timestamps);
-      break;
-    case PROP_STAMP_TEXT_FORMAT:
-      g_value_set_string (value, xccv->dtformat);
-      break;
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
-      break;
-  }
+*/
 }
 
 
@@ -852,7 +772,8 @@ xc_chat_view_run_search (XcChatView *xccv, const gchar *stext, xc_search_flags f
 	return;
 }
 
-/* false, down the window; true, up the window. The GList starts at the end. */
+/* false, down the window, or next; true, up the window, or prev.
+The GList starts at the end. */
 void
 xc_chat_view_next_search (XcChatView *xccv, gboolean direction) {
 	if (!xccv->search_paths)
