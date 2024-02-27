@@ -6,8 +6,6 @@
 #include "xcchatview.h"
 #endif
 
-GSettings *
-settings;
 static GList *
 stakk = NULL;
 
@@ -92,9 +90,6 @@ cb_copy (GSimpleAction *simple, GVariant *parameter, gpointer stck) {
 static void
 example_destroy (GtkWidget *win, gpointer app) {
 	struct Xccvbit *tab;
-
-	g_settings_sync ();
-	g_object_unref (settings);
 
 	GList *l;
 	for (l = stakk; l != NULL; l = l->next) {
@@ -298,9 +293,6 @@ create_searchbar (GtkWidget *bar, GtkWidget *stack) {
 	gtk_box_pack_start (box, searchbits[SI_CASE],	FALSE, FALSE, 0);
 	gtk_box_pack_start (box, searchbits[SI_REGEX],	FALSE, FALSE, 0);
 
-	g_settings_bind (settings, "text-search-highlight-all",	searchbits[SI_ALL],	"active", G_SETTINGS_BIND_DEFAULT);
-	g_settings_bind (settings, "text-search-case-match",	searchbits[SI_CASE],	"active", G_SETTINGS_BIND_DEFAULT);
-	g_settings_bind (settings, "text-search-regexp",	searchbits[SI_REGEX],	"active", G_SETTINGS_BIND_DEFAULT);
 	g_signal_connect (searchbits[SI_ENTRY],	"search-changed", G_CALLBACK (run_search), stack);
 	g_signal_connect (searchbits[SI_ENTRY],	"activate",	G_CALLBACK (run_search), stack);
 	g_signal_connect (searchbits[SI_ALL],	"toggled",	G_CALLBACK (cb_toggled), stack);
@@ -311,40 +303,6 @@ create_searchbar (GtkWidget *bar, GtkWidget *stack) {
 
 	g_signal_connect (lastlog, "clicked", G_CALLBACK (cb_lastlog), stack);
 }
-	//cb_toggled (searchbits[SI_REGEX], stack);
-
-/*
-
-activate-current-link
-Applications may also emit the signal with g_signal_emit_by_name()
-if they need to control activation of URIs programmatically.
-
-searchflags[4];
-
-// stamp-text
-// stamp-text-format
-
-gtk_label_set_selectable (, false)
-gtk_label_new (NULL);
-gtk_label_set_width_chars (, 9) [10 of 102]
-gtk_label_set_line_wrap FALSE
-stack runs the search entry and label, and a timer to update the label.
-xccv runs the search and updates the search info {
-guint search_item
-guint total_found
-bool search_running
-char search_flags }
-
-global pointer array for stack to use searchbar
-
-up/down tell stack, and stack calls function that Ctrl-G does.
-ignore All for now
-cse and rgx set flags, flags are in XcChatView
-
-xccv needs signal for bar to signal updates. or semaphore? Asynch queue?
-Or just int func return?
-
-*/
 
 static void
 cb_time (GSimpleAction *simple, GVariant *parameter, gpointer stack) {
@@ -402,7 +360,7 @@ example_activated (GtkApplication *app, gpointer user_data) {
 	GtkWidget *mbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
 	gtk_container_add (GTK_CONTAINER (win), mbox);
 
-	settings = g_settings_new ("com.github.example");
+	//settings = g_settings_new ("com.github.example");
 
 	GMenu *mmenu = g_menu_new ();
 	GMenu *smenu = g_menu_new ();
