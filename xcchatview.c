@@ -325,7 +325,12 @@ xc_chat_view_set_wordwrap_real (XcChatView *xccv) {
 	gtk_tree_view_column_queue_resize (gtk_tree_view_get_column (xccv->tview, TVC_MESSAGE));
 }
 
-
+/*
+current nasty problem: late-rendering in GTK3 means we don't know the
+allocation until each window is exposes. :-P
+possible solution: get current exposed window, wrap it first, read wcl,
+and pass that in as a fail-safe min value.
+*/
 void
 xc_chat_view_set_wordwrap (XcChatView *xccv, gboolean word_wrap)
 {
@@ -348,7 +353,9 @@ xc_chat_view_set_wordwrap (XcChatView *xccv, gboolean word_wrap)
 		if (gtk_tree_view_column_get_visible (col))
 			wcl -= gtk_tree_view_column_get_width (col);
 		col = gtk_tree_view_get_column (xccv->tview, TVC_HANDLE);
-		xccv->word_wrap_width = wcl - 10 - gtk_tree_view_column_get_width (col); // 10 == fudge value
+		wcl -= 8; // fudge value
+		wcl -= gtk_tree_view_column_get_width (col);
+		xccv->word_wrap_width = wcl;
 	} else
 		xccv->word_wrap_width = -1;
 
@@ -361,6 +368,7 @@ xc_chat_view_set_time_stamp (XcChatView *xccv, gboolean show_dtime)
 {
   GtkTreeViewColumn *dtime = gtk_tree_view_get_column (xccv->tview, TVC_TIMED);
   gtk_tree_view_column_set_visible (dtime, show_dtime);
+  xccv->timestamps = show_dtime;
 }
 
 

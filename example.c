@@ -306,24 +306,36 @@ create_searchbar (GtkWidget *bar, GtkWidget *stack) {
 
 static void
 cb_time (GSimpleAction *simple, GVariant *parameter, gpointer stack) {
-	XcChatView *xccv = get_active_xccv (GTK_STACK (stack));
+	struct Xccvbit *tab;
+
 	GVariant *state = g_action_get_state (G_ACTION (simple));
 	gboolean flag = g_variant_get_boolean (state);
 	g_variant_unref (state);
 
 	g_simple_action_set_state (simple, g_variant_new_boolean (!flag));
-	xc_chat_view_set_time_stamp (xccv, !flag);
+
+	GList *l;
+	for (l = stakk; l != NULL; l = l->next) {
+		tab = l->data;
+		xc_chat_view_set_time_stamp (tab->xccv, !flag);
+	}
 }
 
 static void
 cb_wrap (GSimpleAction *simple, GVariant *parameter, gpointer stack) {
-	XcChatView *xccv = get_active_xccv (GTK_STACK (stack));
+	struct Xccvbit *tab;
+
 	GVariant *state = g_action_get_state (G_ACTION (simple));
 	gboolean flag = g_variant_get_boolean (state);
 	g_variant_unref (state);
 
 	g_simple_action_set_state (simple, g_variant_new_boolean (!flag));
-	xc_chat_view_set_wordwrap (xccv, !flag);
+
+	GList *l;
+	for (l = stakk; l != NULL; l = l->next) {
+		tab = l->data;
+		xc_chat_view_set_wordwrap (tab->xccv, !flag);
+	}
 }
 
 static void
