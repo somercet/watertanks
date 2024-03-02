@@ -38,6 +38,7 @@ static void	xc_chat_view_update_search_widget (XcChatView *xccv);
 static void	tview_reparented (GtkWidget *tview, GtkWidget *old_parent, gpointer us);
 static gboolean	is_scrolled_down (XcChatView *xccv);
 static void	push_down_scrollbar (XcChatView *xccv);
+static gboolean	cb_mapped (GtkWidget *tview, GdkEvent *event, gpointer user_data);
 
 G_DEFINE_TYPE(XcChatView, xc_chat_view, G_TYPE_OBJECT)
 
@@ -106,6 +107,7 @@ xc_chat_view_init (XcChatView *xccv)
   xc_chat_view_update_search_widget (xccv);
 
   xccv->parent_reparent_cb_id = g_signal_connect (xccv->tview, "parent-set", G_CALLBACK (tview_reparented), xccv);
+  g_signal_connect (xccv->tview, "map-event", G_CALLBACK (cb_mapped), xccv);
 }
 
 
@@ -319,18 +321,38 @@ xc_chat_view_set_font (XcChatView *xccv, char *name)
 }
 
 
+
+static gboolean
+cb_mapped (GtkWidget *tview, GdkEvent *event, gpointer user_data) {
+	XcChatView *xccv = user_data;
+
+g_print ("test %d: %s\n", __LINE__, __FILE__);
+	xc_chat_view_set_wordwrap (xccv, xccv->word_wrap);
+	return TRUE;
+}
+
+
 static void
 xc_chat_view_set_wordwrap_real (XcChatView *xccv) {
+	gboolean down = FALSE;
+
+g_print ("test %d: %s\n", __LINE__, __FILE__);
+	if (is_scrolled_down (xccv))
+		down = TRUE;
 	g_object_set (xccv->cell_ms, "wrap-width", xccv->word_wrap_width, NULL);
 	gtk_tree_view_column_queue_resize (gtk_tree_view_get_column (xccv->tview, TVC_MESSAGE));
+	if (down)
+		push_down_scrollbar (xccv);
 }
 
 /*
-current nasty problem: late-rendering in GTK3 means we don't know the
-allocation until each window is exposes. :-P
-possible solution: get current exposed window, wrap it first, read wcl,
-and pass that in as a fail-safe min value.
+states on map-event
+  WW	OFF	  ON	 OFF	ON
+ WWW	 -1	~500	~500	-1
+WW is current or intended
+WWW is actual
 */
+
 void
 xc_chat_view_set_wordwrap (XcChatView *xccv, gboolean word_wrap)
 {
@@ -339,9 +361,8 @@ xc_chat_view_set_wordwrap (XcChatView *xccv, gboolean word_wrap)
 
 	xccv->word_wrap = word_wrap;
 
-	if (word_wrap) {
-		//xccv->parent_widget = gtk_widget_get_parent (GTK_WIDGET (xccv->tview));
-		//if (xccv->parent_widget)
+g_print ("test %d: %s\n", __LINE__, __FILE__);
+	if (xccv->word_wrap) {
 #ifdef USE_GTK3
 		wcl = gtk_widget_get_allocated_width (GTK_WIDGET (xccv->tview));
 #else
@@ -349,15 +370,31 @@ xc_chat_view_set_wordwrap (XcChatView *xccv, gboolean word_wrap)
 		gtk_widget_get_allocation (GTK_WIDGET (xccv->tview), &rect);
 		wcl = rect.width;
 #endif
-		col = gtk_tree_view_get_column (xccv->tview, TVC_TIMED);
-		if (gtk_tree_view_column_get_visible (col))
+g_print ("test %d: %s\n", __LINE__, __FILE__);
+		if (wcl == 1) // not mapped yet
+			return;
+g_print ("test %d: %s\n", __LINE__, __FILE__);
+		if (xccv->timestamps) {
+			col = gtk_tree_view_get_column (xccv->tview, TVC_TIMED);
 			wcl -= gtk_tree_view_column_get_width (col);
+		}
 		col = gtk_tree_view_get_column (xccv->tview, TVC_HANDLE);
-		wcl -= 8; // fudge value
 		wcl -= gtk_tree_view_column_get_width (col);
-		xccv->word_wrap_width = wcl;
-	} else
-		xccv->word_wrap_width = -1;
+		wcl -= 8; // padding tween columns
+g_print ("test %d: %s\n", __LINE__, __FILE__);
+		if (xccv->word_wrap_width == wcl)
+			return;
+		else
+			xccv->word_wrap_width = wcl;
+g_print ("test %d: %s\n", __LINE__, __FILE__);
+	} else {
+		if (xccv->word_wrap_width == -1) {
+g_print ("test %d: %s\n", __LINE__, __FILE__);
+			return; }
+		else
+			xccv->word_wrap_width = -1;
+g_print ("test %d: %s\n", __LINE__, __FILE__);
+	}
 
 	xc_chat_view_set_wordwrap_real (xccv);
 }
@@ -369,6 +406,7 @@ xc_chat_view_set_time_stamp (XcChatView *xccv, gboolean show_dtime)
   GtkTreeViewColumn *dtime = gtk_tree_view_get_column (xccv->tview, TVC_TIMED);
   gtk_tree_view_column_set_visible (dtime, show_dtime);
   xccv->timestamps = show_dtime;
+  xc_chat_view_set_wordwrap (xccv, xccv->word_wrap);
 }
 
 
