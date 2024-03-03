@@ -38,7 +38,7 @@ static void	xc_chat_view_update_search_widget (XcChatView *xccv);
 static void	tview_reparented (GtkWidget *tview, GtkWidget *old_parent, gpointer us);
 static gboolean	is_scrolled_down (XcChatView *xccv);
 static void	push_down_scrollbar (XcChatView *xccv);
-static gboolean	cb_mapped (GtkWidget *tview, GdkEvent *event, gpointer user_data);
+static void	cb_mapped (GtkWidget *tview, gpointer user_data);
 
 G_DEFINE_TYPE(XcChatView, xc_chat_view, G_TYPE_OBJECT)
 
@@ -61,7 +61,8 @@ xc_chat_view_init (XcChatView *xccv)
   xccv->parent_widget = NULL;
   xccv->parent_reparent_cb_id = 0;
   xccv->parent_vadj = NULL;
-
+  xccv->word_wrap = FALSE;
+  xccv->word_wrap_width = -2;
   xccv->cell_td = gtk_cell_renderer_text_new ();
   xccv->cell_hn = gtk_cell_renderer_text_new ();
   xccv->cell_ms = gtk_cell_renderer_text_new ();
@@ -107,7 +108,7 @@ xc_chat_view_init (XcChatView *xccv)
   xc_chat_view_update_search_widget (xccv);
 
   xccv->parent_reparent_cb_id = g_signal_connect (xccv->tview, "parent-set", G_CALLBACK (tview_reparented), xccv);
-  g_signal_connect (xccv->tview, "map-event", G_CALLBACK (cb_mapped), xccv);
+  g_signal_connect (xccv->tview, "map", G_CALLBACK (cb_mapped), xccv);
 }
 
 
@@ -321,14 +322,11 @@ xc_chat_view_set_font (XcChatView *xccv, char *name)
 }
 
 
-
-static gboolean
-cb_mapped (GtkWidget *tview, GdkEvent *event, gpointer user_data) {
+static void
+cb_mapped (GtkWidget *tview, gpointer user_data) {
 	XcChatView *xccv = user_data;
 
-g_print ("test %d: %s\n", __LINE__, __FILE__);
 	xc_chat_view_set_wordwrap (xccv, xccv->word_wrap);
-	return TRUE;
 }
 
 
@@ -336,7 +334,6 @@ static void
 xc_chat_view_set_wordwrap_real (XcChatView *xccv) {
 	gboolean down = FALSE;
 
-g_print ("test %d: %s\n", __LINE__, __FILE__);
 	if (is_scrolled_down (xccv))
 		down = TRUE;
 	g_object_set (xccv->cell_ms, "wrap-width", xccv->word_wrap_width, NULL);
@@ -361,7 +358,6 @@ xc_chat_view_set_wordwrap (XcChatView *xccv, gboolean word_wrap)
 
 	xccv->word_wrap = word_wrap;
 
-g_print ("test %d: %s\n", __LINE__, __FILE__);
 	if (xccv->word_wrap) {
 #ifdef USE_GTK3
 		wcl = gtk_widget_get_allocated_width (GTK_WIDGET (xccv->tview));
@@ -370,10 +366,8 @@ g_print ("test %d: %s\n", __LINE__, __FILE__);
 		gtk_widget_get_allocation (GTK_WIDGET (xccv->tview), &rect);
 		wcl = rect.width;
 #endif
-g_print ("test %d: %s\n", __LINE__, __FILE__);
 		if (wcl == 1) // not mapped yet
 			return;
-g_print ("test %d: %s\n", __LINE__, __FILE__);
 		if (xccv->timestamps) {
 			col = gtk_tree_view_get_column (xccv->tview, TVC_TIMED);
 			wcl -= gtk_tree_view_column_get_width (col);
@@ -381,19 +375,15 @@ g_print ("test %d: %s\n", __LINE__, __FILE__);
 		col = gtk_tree_view_get_column (xccv->tview, TVC_HANDLE);
 		wcl -= gtk_tree_view_column_get_width (col);
 		wcl -= 8; // padding tween columns
-g_print ("test %d: %s\n", __LINE__, __FILE__);
 		if (xccv->word_wrap_width == wcl)
 			return;
 		else
 			xccv->word_wrap_width = wcl;
-g_print ("test %d: %s\n", __LINE__, __FILE__);
 	} else {
-		if (xccv->word_wrap_width == -1) {
-g_print ("test %d: %s\n", __LINE__, __FILE__);
-			return; }
+		if (xccv->word_wrap_width == -1)
+			return;
 		else
 			xccv->word_wrap_width = -1;
-g_print ("test %d: %s\n", __LINE__, __FILE__);
 	}
 
 	xc_chat_view_set_wordwrap_real (xccv);
