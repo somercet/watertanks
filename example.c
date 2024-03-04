@@ -437,6 +437,10 @@ example_activated (GtkApplication *app, gpointer user_data) {
 	xc_chat_view_set_font (xccv1, "Arimo 12");
 */
 	xc_chat_view_set_scrollback_file (xccv1, "text1");
+	xc_chat_view_append_indent (xccv1,
+		(guchar *) "bobvila", 7,
+		(guchar *) "h jdsfh kjdhks hjfkhj shdkdjh s\n", 32,
+		1609556312);
 	xc_chat_view_set_scrollback_file (xccv2, "text2");
 	xc_chat_view_set_scrollback_file (xccv3, "text3");
 }
