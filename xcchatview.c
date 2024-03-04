@@ -204,34 +204,49 @@ xc_chat_view_append (XcChatView *xccv, guchar *mssg, int len, time_t stamp)
 // TODO: pass in GDT, so can be NULL
 void
 xc_chat_view_append_indent (XcChatView *xccv,
-	guchar	*hndl,	int hndl_len,
-	guchar	*mssg,	int mssg_len,
+	guchar	*hndl,	gint hndl_len,
+	guchar	*mssg,	gint mssg_len,
 	time_t	stamp)
 {
   GDateTime	*gdt;
   GtkTreeIter	iter;
   gboolean	down;
+  gchar *h, *m;
+
+  gdt = g_date_time_new_from_unix_local (stamp);
+
+  if (mssg_len > 0 && mssg[mssg_len - 1] == '\n')
+    mssg_len--;
+
+  if (hndl_len == -1)
+    h = g_strdup ((gchar *) hndl);
+  else
+    h = g_strndup ((gchar *) hndl, hndl_len);
+
+  if (mssg_len == -1)
+    m = g_strdup ((gchar *) mssg);
+  else
+    m = g_strndup ((gchar *) mssg, mssg_len);
 
   down = is_scrolled_down (xccv);
 
-  gdt = g_date_time_new_from_unix_local (stamp); // expects gint64
-
-  if (mssg[mssg_len - 1] == '\n')
-    mssg[mssg_len - 1] = '\0';
-
+  g_mutex_init (&xccv->mutex);
   gtk_list_store_append (xccv->store, &iter);
   gtk_list_store_set (xccv->store, &iter,
-    SFS_HANDLE, hndl,
-    SFS_MESSAG, mssg,
+    SFS_HANDLE, h,
+    SFS_MESSAG, m,
     SFS_GDTIME, gdt,
     -1);
 
   xc_chat_view_update_line_count (xccv, 1);
+  g_mutex_clear (&xccv->mutex);
 
   if (down)
     push_down_scrollbar (xccv);
 
   g_date_time_unref (gdt);
+  g_free (h);
+  g_free (m);
 }
 
 void
@@ -312,6 +327,8 @@ xc_chat_view_set_font (XcChatView *xccv, char *name)
 {
   PangoFontDescription	*fontdesc;
   fontdesc = pango_font_description_from_string (name);
+  if (!fontdesc)
+	return 0;
 
   g_object_set (xccv->cell_td, "font-desc", pango_font_description_from_string ("Monospace 10"), NULL);
   g_object_set (xccv->cell_hn, "font-desc", fontdesc, NULL);
@@ -351,8 +368,7 @@ WWW is actual
 */
 
 void
-xc_chat_view_set_wordwrap (XcChatView *xccv, gboolean word_wrap)
-{
+xc_chat_view_set_wordwrap (XcChatView *xccv, gboolean word_wrap) {
 	GtkTreeViewColumn *col;
 	gint wcl;
 
@@ -396,7 +412,8 @@ xc_chat_view_set_time_stamp (XcChatView *xccv, gboolean show_dtime)
   GtkTreeViewColumn *dtime = gtk_tree_view_get_column (xccv->tview, TVC_TIMED);
   gtk_tree_view_column_set_visible (dtime, show_dtime);
   xccv->timestamps = show_dtime;
-  xc_chat_view_set_wordwrap (xccv, xccv->word_wrap);
+  if (xccv->word_wrap)
+    xc_chat_view_set_wordwrap (xccv, xccv->word_wrap);
 }
 
 
