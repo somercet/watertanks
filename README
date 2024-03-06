@@ -1,7 +1,7 @@
 ChatView for an IM client in GTK3.
 
-Uses the log files, not scrollback files, as the latter are far too cluttered to
-migrate, I believe.  Proper format is:
+Uses the log files, not scrollback files, as the latter are far too cluttered
+to migrate.  Proper format is:
 
 2024-02-15T14:58:14Z <tab> <username> <tab> message
 
