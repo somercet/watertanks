@@ -509,10 +509,36 @@ xc_chat_view_set_max_indent (XcChatView *xccv, int max_auto_indent)
 {
   return;
 }
+
+
 void
-xc_chat_view_save (XcChatView *xccv, int fh)
-{
-  return;
+xc_chat_view_save (XcChatView *xccv, int fh) {
+	GtkTreeModel *model = GTK_TREE_MODEL (xccv->store);
+	GString	*hold = g_string_sized_new (1024);
+	GtkTreeIter iter;
+	gboolean valid;
+	gchar *h, *m;
+
+	if (! gtk_tree_model_get_iter_first (model, &iter))
+		return;
+
+	do {
+		gtk_tree_model_get (model, &iter, SFS_HANDLE, &h,
+						  SFS_MESSAG, &m, -1);
+
+		if (h[0] == '\0' || h[0] == '*' || h[0] == '-')
+			g_string_printf (hold, "%s\t%s\n", h, m);
+		else
+			g_string_printf (hold, "<%s>\t%s\n", h, m);
+
+		write (fh, hold->str, hold->len);
+		g_free (h);
+		g_free (m);
+
+		valid = gtk_tree_model_iter_next (model, &iter);
+	} while (valid);
+
+	g_string_free (hold, TRUE);
 }
 
 

@@ -2,6 +2,8 @@
 #include <gtk/gtk.h>
 #endif
 // #include <glib/gprintf.h>
+#include <glib/gstdio.h>
+#include <fcntl.h>
 #ifndef _xc_chat_view_h_
 #include "xcchatview.h"
 #endif
@@ -322,6 +324,18 @@ cb_time (GSimpleAction *simple, GVariant *parameter, gpointer stack) {
 }
 
 static void
+cb_save (GSimpleAction *simple, GVariant *parameter, gpointer stack) {
+	XcChatView *xccv = get_active_xccv (GTK_STACK (stack));
+	gchar *file = "ssssssssss";
+
+	gint fh = g_open (file, O_TRUNC | O_WRONLY | O_CREAT, 0600);
+	if (fh != -1) {
+		xc_chat_view_save (xccv, fh);
+		close (fh);
+	}
+}
+
+static void
 cb_wrap (GSimpleAction *simple, GVariant *parameter, gpointer stack) {
 	struct Xccvbit *tab;
 
@@ -377,11 +391,12 @@ example_activated (GtkApplication *app, gpointer user_data) {
 	GMenu *mmenu = g_menu_new ();
 	GMenu *smenu = g_menu_new ();
 	create_menu_item (smenu, "_Copy",	"app.copy",	NULL,	"<ctrl>c",	NULL);
-	create_menu_item (smenu, "_Word Wrap",	"app.wrap",	NULL,	"<ctrl><shift>w", NULL);
+	create_menu_item (smenu, "Sa_ve",	"app.save",	NULL,	"<ctrl><shift>v",	NULL);
+	create_menu_item (smenu, "_Word Wrap",	"app.wrap",	NULL,	"<ctrl><shift>w",	NULL);
 	create_menu_item (smenu, "Show _Times",	"app.time",	NULL,	"<ctrl>t",	NULL);
 	create_menu_item (smenu, "_Find",	"app.find",	NULL,	"<ctrl>f",	NULL);
 	create_menu_item (smenu, "Find _Next",	"app.next",	NULL,	"<ctrl>g",	NULL);
-	create_menu_item (smenu, "Find _Previous",	"app.prev",	NULL,	"<ctrl><shift>g",	NULL);
+	create_menu_item (smenu, "Find _Prev",	"app.prev",	NULL,	"<ctrl><shift>g",	NULL);
 	create_menu_item (smenu, "Page _Up",	"app.pgup",	NULL,	"<ctrl>Prior",	NULL);
 	create_menu_item (smenu, "Page _Down",	"app.pgdn",	NULL,	"<ctrl>Next",	NULL);
 	create_menu_item (smenu, "C_lose",	"app.clos",	NULL,	"<ctrl>w",	NULL);
@@ -403,6 +418,7 @@ example_activated (GtkApplication *app, gpointer user_data) {
 	};
 	const GActionEntry sacts[] = {
 		{"copy", cb_copy, NULL,    NULL, NULL, {0, 0, 0}},
+		{"save", cb_save, NULL,    NULL, NULL, {0, 0, 0}},
 		{"wrap", cb_wrap, NULL, "false", NULL, {0, 0, 0}},
 		{"time", cb_time, NULL,  "true", NULL, {0, 0, 0}},
 		{"next", cb_next, NULL,    NULL, NULL, {0, 0, 0}},
