@@ -529,7 +529,7 @@ xc_chat_view_set_marker_last (gpointer sessresbuf) {
         if (gtk_tree_model_get_iter_first (model, &iter)) {
 		path = gtk_tree_model_get_path (model, &iter);
 		xccv->marker_pos = gtk_tree_row_reference_new (model, path);
-        	xccv->marker_state = MARKER_IS_SET;
+		xccv->marker_state = MARKER_IS_SET;
 	}
 	if (path)
 		gtk_tree_path_free (path);

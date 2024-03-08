@@ -32,27 +32,27 @@ G_BEGIN_DECLS
 typedef struct _XcChatView	XcChatView;
 typedef struct _XcChatViewClass	XcChatViewClass;
 
-#define ATTR_BOLD                               '\002'
-#define ATTR_COLOR                      '\003'
-#define ATTR_BLINK                      '\006'
-#define ATTR_BEEP                               '\007'
-#define ATTR_HIDDEN                     '\010'
-#define ATTR_ITALICS2           '\011'
-#define ATTR_RESET                      '\017'
-#define ATTR_REVERSE                    '\026'
-#define ATTR_ITALICS                    '\035'
-#define ATTR_STRIKETHROUGH      '\036'
-#define ATTR_UNDERLINE          '\037'
+#define ATTR_BOLD	'\002'
+#define ATTR_COLOR	'\003'
+#define ATTR_BLINK	'\006'
+#define ATTR_BEEP	'\007'
+#define ATTR_HIDDEN	'\010'
+#define ATTR_ITALICS2	'\011'	// now monospace
+#define ATTR_RESET	'\017'
+#define ATTR_REVERSE	'\026'
+#define ATTR_ITALICS	'\035'
+#define ATTR_STRIKETHROUGH	'\036'
+#define ATTR_UNDERLINE	'\037'
 
 /* these match palette.h */
-#define XTEXT_MIRC_COLS 32
-#define XTEXT_COLS 37           /* 32 plus 5 for extra stuff below */
-#define XTEXT_MARK_FG 32        /* for marking text */
-#define XTEXT_MARK_BG 33
-#define XTEXT_FG 34
-#define XTEXT_BG 35
-#define XTEXT_MARKER 36         /* for marker line */
-#define XTEXT_MAX_COLOR 41
+#define XTEXT_MIRC_COLS	32
+#define XTEXT_COLS	37	/* 32 plus 5 for extra stuff below */
+#define XTEXT_MARK_FG	32	/* for marking text */
+#define XTEXT_MARK_BG	33
+#define XTEXT_FG	34
+#define XTEXT_BG	35
+#define XTEXT_MARKER	36	/* for marker line */
+#define XTEXT_MAX_COLOR	41
 
 typedef enum marker_reset_reason_e {
 	MARKER_WAS_NEVER_SET = 0,
