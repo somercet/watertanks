@@ -4,6 +4,9 @@
 // #include <glib/gprintf.h>
 #include <glib/gstdio.h>
 #include <fcntl.h>
+#ifndef _xc_search_flags_h_
+#include "xc_search_flags.h"
+#endif
 #ifndef _xc_chat_view_h_
 #include "xcchatview.h"
 #endif
@@ -20,7 +23,7 @@ Xccvbit {
 static XcChatView *
 Lastlog = NULL;
 
-xc_search_flags
+gint
 search_flags = 0;
 
 static gboolean
@@ -245,9 +248,9 @@ cb_toggled (GtkToggleButton *togged, gpointer stack) {
 			gtk_button_set_label (GTK_BUTTON (togged), "a=A");
 	}
 
-	search_flags =	( searchflags[SI_REGEX] ? SF_REGEXP     : 0 ) |
-			( searchflags[SI_CASE]  ? SF_CASE_MATCH : 0 ) |
-			( searchflags[SI_ALL]   ? SF_HIGHLIGHT  : 0 ) ;
+	search_flags =	searchflags[SI_REGEX] ? SF_REGEXP     : 0 |
+			searchflags[SI_CASE]  ? SF_CASE_MATCH : 0 |
+			searchflags[SI_ALL]   ? SF_HIGHLIGHT  : 0 ;
 
 	if (c != SI_ALL) // no highlight for now
 		run_search (searchbits[SI_ENTRY], stack);

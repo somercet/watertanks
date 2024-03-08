@@ -6,6 +6,10 @@
 #include <gtk/gtk.h>
 #endif
 // #include <glib/gprintf.h>
+
+#ifndef _xc_search_flags_h_
+#include "xc_search_flags.h"
+#endif
 #ifndef _xc_chat_view_h_
 #include "xcchatview.h"
 #endif
@@ -37,7 +41,6 @@ static void	xc_chat_view_clear_search (XcChatView *xccv);
 static void	xc_chat_view_update_search_widget (XcChatView *xccv);
 static void	tview_reparented (GtkWidget *tview, GtkWidget *old_parent, gpointer us);
 static gboolean	is_scrolled_down (XcChatView *xccv);
-static void	push_down_scrollbar (XcChatView *xccv);
 static void	cb_mapped (GtkWidget *tview, gpointer user_data);
 
 G_DEFINE_TYPE(XcChatView, xc_chat_view, G_TYPE_OBJECT)
@@ -106,6 +109,9 @@ xc_chat_view_init (XcChatView *xccv)
   g_object_ref_sink (G_OBJECT (xccv->search_widget));
   xccv->search_label = g_string_new ("---");
   xc_chat_view_update_search_widget (xccv);
+
+  xccv->marker_pos = NULL;
+  xccv->marker_state = MARKER_WAS_NEVER_SET;
 
   xccv->parent_reparent_cb_id = g_signal_connect (xccv->tview, "parent-set", G_CALLBACK (tview_reparented), xccv);
   g_signal_connect (xccv->tview, "map", G_CALLBACK (cb_mapped), xccv);
@@ -242,7 +248,7 @@ xc_chat_view_append_indent (XcChatView *xccv,
   g_mutex_clear (&xccv->mutex);
 
   if (down)
-    push_down_scrollbar (xccv);
+    xc_chat_view_push_down_scrollbar (xccv);
 
   g_date_time_unref (gdt);
   g_free (h);
@@ -284,7 +290,7 @@ xc_chat_view_append0 (	XcChatView	*xccv,
   xc_chat_view_update_line_count (xccv, 1);
 
   if (down)
-    push_down_scrollbar (xccv);
+    xc_chat_view_push_down_scrollbar (xccv);
 }
 
 
@@ -356,7 +362,7 @@ xc_chat_view_set_wordwrap_real (XcChatView *xccv) {
 	g_object_set (xccv->cell_ms, "wrap-width", xccv->word_wrap_width, NULL);
 	gtk_tree_view_column_queue_resize (gtk_tree_view_get_column (xccv->tview, TVC_MESSAGE));
 	if (down)
-		push_down_scrollbar (xccv);
+		xc_chat_view_push_down_scrollbar (xccv);
 }
 
 /*
@@ -510,6 +516,25 @@ xc_chat_view_set_max_indent (XcChatView *xccv, int max_auto_indent)
   return;
 }
 
+void
+xc_chat_view_set_marker_last (gpointer sessresbuf) {
+	XcChatView *xccv = sessresbuf;
+	GtkTreeModel *model = GTK_TREE_MODEL (xccv->store);
+	GtkTreePath *path = NULL;
+	GtkTreeIter iter;
+
+	if (xccv->marker_pos)
+		gtk_tree_row_reference_free (xccv->marker_pos);
+
+        if (gtk_tree_model_get_iter_first (model, &iter)) {
+		path = gtk_tree_model_get_path (model, &iter);
+		xccv->marker_pos = gtk_tree_row_reference_new (model, path);
+        	xccv->marker_state = MARKER_IS_SET;
+	}
+	if (path)
+		gtk_tree_path_free (path);
+}
+
 
 void
 xc_chat_view_save (XcChatView *xccv, int fh) {
@@ -611,7 +636,7 @@ xc_chat_view_load_scrollback_finish (GObject *sobj, GAsyncResult *res, gpointer 
 		g_string_free (msg, TRUE);
 	}
 
-	push_down_scrollbar (xccv);
+	xc_chat_view_push_down_scrollbar (xccv);
 	g_object_unref (task);
 }
 
@@ -714,17 +739,6 @@ xc_chat_view_set_scrollback_file (XcChatView *xccv, gchar *filename)
 }
 
 
-/*
-   gchar	*search_text;
-   GList	*search_paths;
-   GList	*search_current;
-   guint	search_total;
-   guint	search_now;
-   GtkLabel	*search_widget;
-   GString	*search_label;
-   xc_search_flags       flags;
-*/
-
 static void
 xc_chat_view_clear_search (XcChatView *xccv) {
 	g_string_assign (xccv->search_label, "---");
@@ -755,7 +769,7 @@ xc_chat_view_update_search_widget (XcChatView *xccv) {
 /* Nothing else calls search_handle_event() so we don't need
 to process the PREV/NEXT buttons through this func. */
 void
-xc_chat_view_run_search (XcChatView *xccv, const gchar *stext, xc_search_flags flags, GError **serr) {
+xc_chat_view_run_search (XcChatView *xccv, const gchar *stext, gint flags, GError **serr) {
 	//GtkTreeModel *model = gtk_tree_view_get_model (xccv->tview);
 	GtkTreeModel *model = GTK_TREE_MODEL (xccv->store);
 	GString *hold = g_string_sized_new (1024);
@@ -883,7 +897,7 @@ xc_chat_view_next_search (XcChatView *xccv, gboolean direction) {
 
 /* fe-gtk.c doesn't even check the return value. */
 void
-xc_chat_view_lastlog (XcChatView *xccv, XcChatView *target, const gchar *text, xc_search_flags flags) {
+xc_chat_view_lastlog (XcChatView *xccv, XcChatView *target, const gchar *text, gint flags) {
 	GtkTreeModel *model = GTK_TREE_MODEL (xccv->store);
 	GString *hold = g_string_sized_new (1024);
 	GDateTime *gd;
@@ -951,8 +965,8 @@ is_scrolled_down (XcChatView *xccv) {
 		return FALSE;
 }
 
-static void
-push_down_scrollbar (XcChatView *xccv) {
+void
+xc_chat_view_push_down_scrollbar (XcChatView *xccv) {
 	gdouble page_size = gtk_adjustment_get_page_size (xccv->parent_vadj);
 	gdouble upper = gtk_adjustment_get_upper (xccv->parent_vadj);
 

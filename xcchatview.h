@@ -32,13 +32,27 @@ G_BEGIN_DECLS
 typedef struct _XcChatView	XcChatView;
 typedef struct _XcChatViewClass	XcChatViewClass;
 
-typedef enum xc_search_flags_e {
-	SF_CASE_MATCH = 1,
-	SF_BACKWARD = 2,
-	SF_HIGHLIGHT = 4,
-	SF_FOLLOW = 8,
-	SF_REGEXP = 16
-} xc_search_flags;
+#define ATTR_BOLD                               '\002'
+#define ATTR_COLOR                      '\003'
+#define ATTR_BLINK                      '\006'
+#define ATTR_BEEP                               '\007'
+#define ATTR_HIDDEN                     '\010'
+#define ATTR_ITALICS2           '\011'
+#define ATTR_RESET                      '\017'
+#define ATTR_REVERSE                    '\026'
+#define ATTR_ITALICS                    '\035'
+#define ATTR_STRIKETHROUGH      '\036'
+#define ATTR_UNDERLINE          '\037'
+
+/* these match palette.h */
+#define XTEXT_MIRC_COLS 32
+#define XTEXT_COLS 37           /* 32 plus 5 for extra stuff below */
+#define XTEXT_MARK_FG 32        /* for marking text */
+#define XTEXT_MARK_BG 33
+#define XTEXT_FG 34
+#define XTEXT_BG 35
+#define XTEXT_MARKER 36         /* for marker line */
+#define XTEXT_MAX_COLOR 41
 
 typedef enum marker_reset_reason_e {
 	MARKER_WAS_NEVER_SET = 0,
@@ -86,7 +100,6 @@ struct _XcChatView
   guint		lines_current;
   gboolean	word_wrap;
   gint		word_wrap_width;
-  marker_reset_reason	marker_state;
   gboolean	timestamps;
 
   gchar	*search_text;
@@ -97,9 +110,12 @@ struct _XcChatView
   GString	*search_label;
   guint	search_total;
   guint	search_now;
-  xc_search_flags	search_flags;
+  gint	search_flags;
 
   GMutex	mutex;
+
+  GtkTreeRowReference *marker_pos;
+  marker_reset_reason marker_state;
 
   /* Private */
 };
@@ -235,7 +251,7 @@ void xc_chat_view_save (	XcChatView	*xccv,
 // textentry *gtk_xtext_search (GtkXText * xtext, const gchar *text, gtk_xtext_search_flags flags, GError **err);
 void xc_chat_view_run_search (	XcChatView	*xccv,
 				const gchar	*search_text,
-				xc_search_flags	flags,
+				gint		flags,
 				GError		**serr );
 
 void xc_chat_view_next_search (	XcChatView	*xccv,
@@ -244,7 +260,7 @@ void xc_chat_view_next_search (	XcChatView	*xccv,
 void xc_chat_view_lastlog (	XcChatView	*xccv,
 				XcChatView	*target,
 				const gchar	*text,
-				xc_search_flags	flags );
+				gint		flags );
 
 /*
 hexchat/src/common/outbound.c
@@ -282,6 +298,9 @@ void		xc_chat_view_append0 (	XcChatView	*xccv,
 // sess->scrollback_replay_marklast = gtk_xtext_set_marker_last;
 // void gtk_xtext_set_marker_last (	session		*sess);
 // scrollback: gtk_cell_renderer_set_visible()
+void	xc_chat_view_set_marker_last (	gpointer sessresbuf );
+
+void	xc_chat_view_push_down_scrollbar (	XcChatView	*xccv );
 
 
 // TODO: do not replace these, comment out
