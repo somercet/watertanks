@@ -214,12 +214,21 @@ xc_chat_view_append_indent (XcChatView *xccv,
 	guchar	*mssg,	gint mssg_len,
 	time_t	stamp)
 {
-  GDateTime	*gdt;
+  GDateTime	*gdt = NULL;
+  GTimeZone	*tz = NULL;
   GtkTreeIter	iter;
   gboolean	down;
   gchar *h, *m;
 
-  gdt = g_date_time_new_from_unix_local (stamp);
+  if (stamp == 0) {
+    tz = g_time_zone_new_local ();
+    gdt = g_date_time_new_now (tz);
+  } else
+    gdt = g_date_time_new_from_unix_local (stamp);
+/*
+  if (stamp != 0)
+    gdt = g_date_time_new_from_unix_local (stamp);
+*/
 
   if (mssg_len > 0 && mssg[mssg_len - 1] == '\n')
     mssg_len--;
@@ -250,6 +259,8 @@ xc_chat_view_append_indent (XcChatView *xccv,
   if (down)
     xc_chat_view_push_down_scrollbar (xccv);
 
+  if (tz)
+    g_time_zone_unref (tz);
   g_date_time_unref (gdt);
   g_free (h);
   g_free (m);
