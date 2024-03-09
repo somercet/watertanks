@@ -1,3 +1,6 @@
+/* Copyright 2023-2024 somercet
+ * Released under GPL2.
+ * Author: google mail com at somercet */
 
 #ifndef _xc_search_flags_h_
 #define _xc_search_flags_h_
