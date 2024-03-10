@@ -528,8 +528,8 @@ xc_chat_view_set_max_indent (XcChatView *xccv, int max_auto_indent)
 }
 
 void
-xc_chat_view_set_marker_last (gpointer sessresbuf) {
-	XcChatView *xccv = sessresbuf;
+xc_chat_view_set_marker_last (gpointer sessresbuff) {
+	XcChatView *xccv = G_TYPE_CHECK_INSTANCE_CAST (sessresbuff, XC_TYPE_CHAT_VIEW, XcChatView);
 	GtkTreeModel *model = GTK_TREE_MODEL (xccv->store);
 	GtkTreePath *path = NULL;
 	GtkTreeIter iter;
