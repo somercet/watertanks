@@ -197,18 +197,14 @@ void xc_chat_view_set_time_stamp (	XcChatView	*xccv,
 // maingui.c	1. mg_update_xtext < mg_create_textarea
 // void gtk_xtext_set_background (GtkXText * xtext, GdkPixmap * pixmap);
 void xc_chat_view_set_background (	XcChatView	*xccv,
-#ifdef USE_GTK3
 					gchar		*file );
-#else
-					GdkPixmap	*pixmap);
-#endif
 // void gtk_xtext_set_palette (GtkXText * xtext, GdkColor palette[]);
 void xc_chat_view_set_palette (		XcChatView	*xccv,
-#ifdef USE_GTK3
-					GdkRGBA		palette[] );
-#else
+//#ifdef GTK3
+//					GdkRGBA		palette[] );
+//#else
 					GdkColor	palette[] );
-#endif
+//#endif
 // menu.c	menu_resetmarker
 // void gtk_xtext_reset_marker_pos (GtkXText *xtext);
 void xc_chat_view_reset_marker_pos (	XcChatView	*xccv );

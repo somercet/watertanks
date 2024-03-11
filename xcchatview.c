@@ -392,7 +392,7 @@ xc_chat_view_set_wordwrap (XcChatView *xccv, gboolean word_wrap) {
 	xccv->word_wrap = word_wrap;
 
 	if (xccv->word_wrap) {
-#ifdef USE_GTK3
+#ifdef GTK3
 		wcl = gtk_widget_get_allocated_width (GTK_WIDGET (xccv->tview));
 #else
 		GtkAllocation rect;
@@ -435,13 +435,9 @@ xc_chat_view_set_time_stamp (XcChatView *xccv, gboolean show_dtime)
 
 
 void
-#ifdef USE_GTK3
 xc_chat_view_set_background (XcChatView *xccv, gchar *file)
-#else
-xc_chat_view_set_background (XcChatView *xccv, GdkPixmap *pixmap )
-#endif
 {
-#ifdef USE_GTK3
+#ifdef GTK3
   GtkCssProvider	*provider;
   GdkDisplay	*display;
   GdkScreen	*screen;
@@ -466,18 +462,20 @@ xc_chat_view_set_background (XcChatView *xccv, GdkPixmap *pixmap )
   g_free (half);
   g_free (full);
 #else
-	return;
+	g_print ("File: '%s'.\n", file);
 #endif
 }
 
 
 // TODO: All these can wait
 void
-#ifdef USE_GTK3
+/*
+#ifdef GTK3
 xc_chat_view_set_palette (XcChatView *xccv, GdkRGBA palette[])
 #else
+*/
 xc_chat_view_set_palette (XcChatView *xccv, GdkColor palette[])
-#endif
+//#endif
 {
 // https://developer-old.gnome.org/gdk3/stable/gdk3-Colors.html#GdkColor
 // https://developer-old.gnome.org/gdk3/stable/gdk3-RGBA-Colors.html#GdkRGBA
@@ -537,7 +535,7 @@ xc_chat_view_set_marker_last (gpointer sessresbuff) {
 	if (xccv->marker_pos)
 		gtk_tree_row_reference_free (xccv->marker_pos);
 
-        if (gtk_tree_model_get_iter_first (model, &iter)) {
+        if (gtk_tree_model_get_iter_first (model, &iter)) { // yes, should be last but I'm just adding the variables we'll need
 		path = gtk_tree_model_get_path (model, &iter);
 		xccv->marker_pos = gtk_tree_row_reference_new (model, path);
 		xccv->marker_state = MARKER_IS_SET;
@@ -1028,5 +1026,7 @@ g_print ("test %d: %s %d\n", __LINE__, __FILE__, xccv->word_wrap_width);
 
 
 /*
-g_print ("test %d: %s\n", __LINE__, __FILE__);
+g_printerr ("test %d: %s\n", __LINE__, __FILE__);
+g_printerr ("Widget: %s\n", G_OBJECT_TYPE_NAME (sess->gui->menu_item[id]));
+g_printerr ("Class: %s\n", G_OBJECT_TYPE_NAME (sess->gui->menu_item[id]));
 */
