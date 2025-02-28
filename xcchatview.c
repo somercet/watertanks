@@ -14,15 +14,13 @@
 #include "xcchatview.h"
 #endif
 
-/*
 enum {
-	SEARCH_RESULT_CREATED,
-	LAST_SIGNAL
+	XCCV_WORD_CLICK = 1,
+	XCCV_LAST_SIGNAL
 };
 
 static guint
-xc_chat_view_signals[LAST_SIGNAL] = { 0 };
-*/
+xc_chat_view_signals[XCCV_LAST_SIGNAL] = { 0 };
 
 /* static func declarations */
 static void	cell_func_dtime (	GtkTreeViewColumn	*tree_column,
@@ -39,9 +37,10 @@ static void	xc_chat_view_update_line_count (XcChatView *xccv, gint lines);
 static void	xc_chat_view_set_wordwrap_real (XcChatView *xccv);
 static void	xc_chat_view_clear_search (XcChatView *xccv);
 static void	xc_chat_view_update_search_widget (XcChatView *xccv);
-static void	tview_reparented (GtkWidget *tview, GtkWidget *old_parent, gpointer us);
 static gboolean	is_scrolled_down (XcChatView *xccv);
+static void	cb_tview_reparented (GtkWidget *tview, GtkWidget *old_parent, gpointer us);
 static void	cb_mapped (GtkWidget *tview, gpointer user_data);
+static gboolean	cb_timeout (gpointer user_data);
 
 G_DEFINE_TYPE(XcChatView, xc_chat_view, G_TYPE_OBJECT)
 
@@ -58,48 +57,26 @@ xc_chat_view_new (void)
 static void
 xc_chat_view_init (XcChatView *xccv)
 {
-  xccv->dtformat = g_strdup ("%H:%M:%S");
-
   /* initialisation goes here */
-  xccv->parent_widget = NULL;
-  xccv->parent_reparent_cb_id = 0;
-  xccv->parent_vadj = NULL;
-  xccv->word_wrap = FALSE;
+  xccv->dtformat = g_strdup ("%H:%M:%S");
   xccv->word_wrap_width = -2;
-  xccv->cell_td = gtk_cell_renderer_text_new ();
-  xccv->cell_hn = gtk_cell_renderer_text_new ();
-  xccv->cell_ms = gtk_cell_renderer_text_new ();
-  xccv->store = gtk_list_store_new (SFS_COLNUM,
+
+  xccv->store = gtk_tree_store_new (SFS_COLNUM,
 		G_TYPE_STRING,
 		G_TYPE_STRING,
 		G_TYPE_STRING,
 		G_TYPE_DATE_TIME);
-  xccv->tview = GTK_TREE_VIEW (gtk_tree_view_new_with_model (GTK_TREE_MODEL (xccv->store)));
-  xccv->clippy = gtk_clipboard_get (GDK_SELECTION_CLIPBOARD);
-  xccv->select = gtk_tree_view_get_selection (xccv->tview);
 
-  g_object_ref_sink (xccv->cell_td);
-  g_object_ref_sink (xccv->cell_hn);
-  g_object_ref_sink (xccv->cell_ms);
-  g_object_ref_sink (xccv->tview);
+// class?
+  xccv->clippy = gtk_clipboard_get (GDK_SELECTION_CLIPBOARD);
+
 /*
   GdkRGBA foo = { 0.0, 0.0, 0.0, 0.0 }; // { R, G, B, A } 0.0 to 1.0 double
-  g_object_set (xccv->cell_ms, "background-rgba", &foo, NULL);
+  g_object_set (xccv ->cell_ms, "background-rgba", &foo, NULL);
 */
-  g_object_set (xccv->cell_td, "font", "Monospace 10", NULL);
-  g_object_set (xccv->cell_ms, "wrap-mode", PANGO_WRAP_WORD_CHAR, NULL); // PANGO_WRAP_WORD, PANGO_WRAP_CHAR
-  gtk_tree_view_set_headers_visible (xccv->tview, FALSE);
-
-  gtk_tree_view_insert_column_with_data_func  (xccv->tview, TVC_TIMED,       "Date", xccv->cell_td,
-						cell_func_dtime, xccv, NULL);
-  gtk_tree_view_insert_column_with_attributes (xccv->tview, TVC_HANDLE,    "Handle", xccv->cell_hn, "text", SFS_HANDLE, NULL);
-  gtk_tree_view_insert_column_with_attributes (xccv->tview, TVC_MESSAGE, "Messages", xccv->cell_ms, "text", SFS_MESSAG, NULL);
-  gtk_tree_selection_set_mode (xccv->select, GTK_SELECTION_MULTIPLE);
-  gtk_tree_view_set_enable_search (xccv->tview, FALSE);
 
   xccv->lines_max = 1000;
   xccv->lines_current = 0;
-  xccv->timestamps = TRUE;
 
   g_mutex_init (&xccv->mutex);
 
@@ -113,23 +90,36 @@ xc_chat_view_init (XcChatView *xccv)
   xccv->marker_pos = NULL;
   xccv->marker_state = MARKER_WAS_NEVER_SET;
 
-  xccv->parent_reparent_cb_id = g_signal_connect (xccv->tview, "parent-set", G_CALLBACK (tview_reparented), xccv);
-  g_signal_connect (xccv->tview, "map", G_CALLBACK (cb_mapped), xccv);
+  xccv->timeout = g_timeout_add (5000, G_SOURCE_FUNC (cb_timeout), xccv);
+  xccv->lorem = "Lorem ipsum dolor sit amet, consectetur adipiscing elit.";
+  xccv->ipsum = "Marcus Tullius Cicero";
 }
 
+static gboolean
+cb_timeout (gpointer user_data)
+{
+  g_return_val_if_fail (XC_IS_CHAT_VIEW (user_data), FALSE);
+  XcChatView *xccv = XC_CHAT_VIEW (user_data);
+
+  GDateTime *gdt = g_date_time_new_now_local ();
+  xc_chat_view_append0 (xccv, gdt, xccv->ipsum, xccv->lorem);
+  g_date_time_unref (gdt);
+  return TRUE;
+}
 
 static void
 xc_chat_view_class_init (XcChatViewClass *klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
+  klass->timestamps = TRUE;
+  klass->word_wrap = FALSE;
+  klass->lstview = NULL;
 
   /* virtual function overrides go here */
   gobject_class->dispose = xc_chat_view_dispose;
 
   /* property and signal definitions go here */
-
-/*
-  xc_chat_view_signals[SEARCH_RESULT_CREATED] = g_signal_new("search-result-created",
+  xc_chat_view_signals[XCCV_WORD_CLICK] = g_signal_new("word_click", //place-holder for per-word-menu
 	XC_TYPE_CHAT_VIEW,	// G_TYPE_FROM_INSTANCE(xccv),
 	G_SIGNAL_RUN_LAST,
 	0,		// class_offset *fp
@@ -137,9 +127,7 @@ xc_chat_view_class_init (XcChatViewClass *klass)
 	NULL,		// accu data
 	NULL,		// GSignalCMarshaller
 	G_TYPE_NONE,	// return type
-	0);		// param #
-		// params G_TYPE_UINT);
-*/
+	0);		// param # // params G_TYPE_UINT);
 }
 
 
@@ -148,13 +136,9 @@ xc_chat_view_dispose (GObject *object)
 {
   XcChatView *xccv = XC_CHAT_VIEW (object);
 
-  if (GTK_IS_TREE_VIEW (xccv->tview))
-	gtk_widget_destroy (GTK_WIDGET (xccv->tview));
-  g_clear_object (&xccv->tview);
+  g_source_remove (xccv->timeout);
+
   g_clear_object (&xccv->store);
-  g_clear_object (&xccv->cell_td);
-  g_clear_object (&xccv->cell_hn);
-  g_clear_object (&xccv->cell_ms);
 
   if (xccv->scrollback_filename)
     g_free (xccv->scrollback_filename);
@@ -187,14 +171,70 @@ cell_func_dtime (	GtkTreeViewColumn	*tree_column,
 
   gtk_tree_model_get (tree_model, iter, SFS_GDTIME, &dtime, -1);
   if (! dtime)
-  {
     g_object_set (cell, "text", "", NULL);
-    return;
+  else {
+    g_object_set (cell, "text", g_date_time_format (dtime, xccv->dtformat), NULL);
+    g_date_time_unref (dtime);
   }
+}
 
-  g_object_set (cell, "text", g_date_time_format (dtime, xccv->dtformat), NULL);
 
-  g_date_time_unref (dtime);
+void
+xc_chat_view_tview_init (XcChatView *xccv, struct atview *atv)
+{
+  g_return_if_fail (XC_IS_CHAT_VIEW (xccv) && atv->select == NULL);
+
+  atv->cell_td = gtk_cell_renderer_text_new ();
+  atv->cell_hn = gtk_cell_renderer_text_new ();
+  atv->cell_ms = gtk_cell_renderer_text_new ();
+
+  gtk_tree_view_insert_column_with_attributes (atv->tview, TVC_HANDLE,  "Handle",
+    atv->cell_hn, "text", SFS_HANDLE, NULL);
+  gtk_tree_view_insert_column_with_attributes (atv->tview, TVC_MESSAGE, "Messages",
+    atv->cell_ms, "text", SFS_MESSAG, NULL);
+  gtk_tree_view_insert_column_with_data_func  (atv->tview, TVC_TIMED,   "Date",
+    atv->cell_td, cell_func_dtime, xccv, NULL);
+
+  g_object_set (atv->cell_td, "font", "Monospace 9", NULL);
+  g_object_set (atv->cell_ms, "wrap-mode", PANGO_WRAP_WORD_CHAR, NULL);
+
+  gtk_tree_view_set_headers_visible (atv->tview, FALSE);
+  gtk_tree_view_set_enable_search (atv->tview, FALSE);
+
+  atv->select = gtk_tree_view_get_selection (atv->tview);
+  gtk_tree_selection_set_mode (atv->select, GTK_SELECTION_MULTIPLE);
+
+  atv->vadj = gtk_scrollable_get_vadjustment (GTK_SCROLLABLE (atv->tview));
+  if (atv->vadj == NULL)
+    g_print ("vadj is null\n");
+}
+
+
+void
+xc_chat_view_attach (XcChatView *xccv, struct atview *atv)
+{
+  g_return_if_fail (XC_IS_CHAT_VIEW (xccv) && atv != NULL);
+  xccv->atv = atv;
+  gtk_tree_view_set_model (xccv->atv->tview, GTK_TREE_MODEL (xccv->store));
+
+// TODO add get vadjustment
+  xccv->reparent_cb_id = g_signal_connect (xccv->atv->tview, "parent-set", G_CALLBACK (cb_tview_reparented), xccv);
+  xccv->tview_map_cb_id = g_signal_connect (xccv->atv->tview, "map", G_CALLBACK (cb_mapped), xccv);
+}
+
+
+void
+xc_chat_view_detach (XcChatView *xccv)
+{
+  g_return_if_fail (XC_IS_CHAT_VIEW (xccv));
+
+// TODO: save position if not down
+
+  g_signal_handler_disconnect (xccv->atv->tview, xccv->reparent_cb_id);
+  g_signal_handler_disconnect (xccv->atv->tview, xccv->tview_map_cb_id);
+
+  gtk_tree_view_set_model (xccv->atv->tview, NULL);
+  xccv->atv = NULL;
 }
 
 
@@ -215,15 +255,13 @@ xc_chat_view_append_indent (XcChatView *xccv,
 	time_t	stamp)
 {
   GDateTime	*gdt = NULL;
-  GTimeZone	*tz = NULL;
   GtkTreeIter	iter;
   gboolean	down;
   gchar *h, *m;
 
-  if (stamp == 0) {
-    tz = g_time_zone_new_local ();
-    gdt = g_date_time_new_now (tz);
-  } else
+  if (stamp == 0)
+    gdt = g_date_time_new_now_local ();
+  else
     gdt = g_date_time_new_from_unix_local (stamp);
 /*
   if (stamp != 0)
@@ -245,22 +283,20 @@ xc_chat_view_append_indent (XcChatView *xccv,
 
   down = is_scrolled_down (xccv);
 
-  g_mutex_init (&xccv->mutex);
-  gtk_list_store_append (xccv->store, &iter);
-  gtk_list_store_set (xccv->store, &iter,
+  g_mutex_lock (&xccv->mutex);
+  gtk_tree_store_append (xccv->store, &iter, NULL);
+  gtk_tree_store_set (xccv->store, &iter,
     SFS_HANDLE, h,
     SFS_MESSAG, m,
     SFS_GDTIME, gdt,
     -1);
 
   xc_chat_view_update_line_count (xccv, 1);
-  g_mutex_clear (&xccv->mutex);
+  g_mutex_unlock (&xccv->mutex);
 
   if (down)
     xc_chat_view_push_down_scrollbar (xccv);
 
-  if (tz)
-    g_time_zone_unref (tz);
   g_date_time_unref (gdt);
   g_free (h);
   g_free (m);
@@ -271,15 +307,15 @@ xc_chat_view_prepend0 (	XcChatView	*xccv,
 			GDateTime	*dtime,
 			gchar		*handle,
 			gchar		*message ) {
-  g_mutex_init (&xccv->mutex);
-  gtk_list_store_insert_with_values (xccv->store, NULL, 0,
+  g_mutex_lock (&xccv->mutex);
+  gtk_tree_store_insert_with_values (xccv->store, NULL, NULL, 0,
     SFS_HANDLE, handle,
     SFS_MESSAG, message,
     SFS_GDTIME, dtime,
     -1);
-  g_mutex_clear (&xccv->mutex);
 
   xc_chat_view_update_line_count (xccv, 1);
+  g_mutex_unlock (&xccv->mutex);
 }
 
 
@@ -293,16 +329,17 @@ xc_chat_view_append0 (	XcChatView	*xccv,
 
   down = is_scrolled_down (xccv);
 
-  g_mutex_init (&xccv->mutex);
-  gtk_list_store_append (xccv->store, &iter);
-  gtk_list_store_set (xccv->store, &iter,
+  g_mutex_lock (&xccv->mutex);
+  gtk_tree_store_append (xccv->store, &iter, NULL);
+  gtk_tree_store_set (xccv->store, &iter,
     SFS_HANDLE, handle,
     SFS_MESSAG, message,
     SFS_GDTIME, dtime,
     -1);
-  g_mutex_clear (&xccv->mutex);
 
   xc_chat_view_update_line_count (xccv, 1);
+  g_mutex_unlock (&xccv->mutex);
+
 
   if (down)
     xc_chat_view_push_down_scrollbar (xccv);
@@ -313,12 +350,10 @@ static void
 xc_chat_view_update_line_count (XcChatView *xccv, gint l) {
 	gint c;
 
-	g_mutex_init (&xccv->mutex);
 	xccv->lines_current += l;
 	c = xccv->lines_current - xccv->lines_max;
 	if (c > 0)
 		xc_chat_view_clear (xccv, c);
-	g_mutex_clear (&xccv->mutex);
 }
 
 
@@ -332,13 +367,13 @@ xc_chat_view_clear (XcChatView	*xccv, gint lines) {
 	else if (lines > 0) { // from top
 		gtk_tree_model_get_iter_first (GTK_TREE_MODEL (xccv->store), &iter);
 		for (c = lines; c > 0; c--) {
-			if (! gtk_list_store_remove (xccv->store, &iter))
+			if (! gtk_tree_store_remove (xccv->store, &iter))
 				g_printerr ("not deleted on %d of %d lines.\n", c, lines);
 			else
 				xccv->lines_current--;
 		}
 	} else { // all
-		gtk_list_store_clear (xccv->store);
+		gtk_tree_store_clear (xccv->store);
 		xccv->lines_current = 0;
 	}
 }
@@ -348,14 +383,14 @@ xc_chat_view_clear (XcChatView	*xccv, gint lines) {
 int
 xc_chat_view_set_font (XcChatView *xccv, char *name)
 {
-  PangoFontDescription	*fontdesc;
-  fontdesc = pango_font_description_from_string (name);
+  g_return_val_if_fail (xccv->atv != NULL, 0);
+  PangoFontDescription *fontdesc = pango_font_description_from_string (name);
   if (!fontdesc)
 	return 0;
 
-  g_object_set (xccv->cell_td, "font-desc", pango_font_description_from_string ("Monospace 10"), NULL);
-  g_object_set (xccv->cell_hn, "font-desc", fontdesc, NULL);
-  g_object_set (xccv->cell_ms, "font-desc", fontdesc, NULL);
+  g_object_set (xccv->atv->cell_td, "font-desc", pango_font_description_from_string ("Monospace 10"), NULL);
+  g_object_set (xccv->atv->cell_hn, "font-desc", fontdesc, NULL);
+  g_object_set (xccv->atv->cell_ms, "font-desc", fontdesc, NULL);
 
   pango_font_description_free (fontdesc);
   return 1;
@@ -365,8 +400,10 @@ xc_chat_view_set_font (XcChatView *xccv, char *name)
 static void
 cb_mapped (GtkWidget *tview, gpointer user_data) {
 	XcChatView *xccv = user_data;
+	XcChatViewClass *klass = XC_CHAT_VIEW_GET_CLASS (xccv);
 
-	xc_chat_view_set_wordwrap (xccv, xccv->word_wrap);
+	if (klass->word_wrap)
+		xc_chat_view_set_wordwrap (xccv, klass->word_wrap);
 }
 
 
@@ -376,8 +413,8 @@ xc_chat_view_set_wordwrap_real (XcChatView *xccv) {
 
 	if (is_scrolled_down (xccv))
 		down = TRUE;
-	g_object_set (xccv->cell_ms, "wrap-width", xccv->word_wrap_width, NULL);
-	gtk_tree_view_column_queue_resize (gtk_tree_view_get_column (xccv->tview, TVC_MESSAGE));
+	g_object_set (xccv->atv->cell_ms, "wrap-width", xccv->word_wrap_width, NULL);
+	gtk_tree_view_column_queue_resize (gtk_tree_view_get_column (xccv->atv->tview, TVC_MESSAGE));
 	if (down)
 		xc_chat_view_push_down_scrollbar (xccv);
 }
@@ -391,27 +428,25 @@ WWW is actual
 */
 
 void
-xc_chat_view_set_wordwrap (XcChatView *xccv, gboolean word_wrap) {
+xc_chat_view_set_wordwrap (XcChatView *xccv, gboolean wordwrap) {
 	GtkTreeViewColumn *col;
 	gint wcl;
+	g_return_if_fail (xccv->atv != NULL);
 
-	xccv->word_wrap = word_wrap;
+	XcChatViewClass *klass = XC_CHAT_VIEW_GET_CLASS (xccv);
+	klass->word_wrap = wordwrap;
 
-	if (xccv->word_wrap) {
-#ifdef GTK3
-		wcl = gtk_widget_get_allocated_width (GTK_WIDGET (xccv->tview));
-#else
-		GtkAllocation rect;
-		gtk_widget_get_allocation (GTK_WIDGET (xccv->tview), &rect);
-		wcl = rect.width;
-#endif
+	if (klass->word_wrap) {
+		wcl = gtk_widget_get_allocated_width (GTK_WIDGET (xccv->atv->tview));
+
 		if (wcl == 1) // not mapped yet
 			return;
-		if (xccv->timestamps) {
-			col = gtk_tree_view_get_column (xccv->tview, TVC_TIMED);
+
+		if (klass->timestamps) {
+			col = gtk_tree_view_get_column (xccv->atv->tview, TVC_TIMED);
 			wcl -= gtk_tree_view_column_get_width (col);
 		}
-		col = gtk_tree_view_get_column (xccv->tview, TVC_HANDLE);
+		col = gtk_tree_view_get_column (xccv->atv->tview, TVC_HANDLE);
 		wcl -= gtk_tree_view_column_get_width (col);
 		wcl -= 8; // padding tween columns
 		if (xccv->word_wrap_width == wcl)
@@ -432,32 +467,32 @@ xc_chat_view_set_wordwrap (XcChatView *xccv, gboolean word_wrap) {
 void
 xc_chat_view_set_time_stamp (XcChatView *xccv, gboolean show_dtime)
 {
-  GtkTreeViewColumn *dtime = gtk_tree_view_get_column (xccv->tview, TVC_TIMED);
+  g_return_if_fail (xccv->atv != NULL);
+  XcChatViewClass *klass = XC_CHAT_VIEW_GET_CLASS(xccv);
+
+  GtkTreeViewColumn *dtime = gtk_tree_view_get_column (xccv->atv->tview, TVC_TIMED);
   gtk_tree_view_column_set_visible (dtime, show_dtime);
-  xccv->timestamps = show_dtime;
-  if (xccv->word_wrap)
-    xc_chat_view_set_wordwrap (xccv, xccv->word_wrap);
+  klass->timestamps = show_dtime;
 }
 
 
 void
 xc_chat_view_set_background (XcChatView *xccv, gchar *file)
 {
-#ifdef GTK3
   GtkCssProvider	*provider;
   GdkDisplay	*display;
   GdkScreen	*screen;
   gchar		*full, *half,
 		*f = "treeview.view { background-image: %s; }\n";
 
+  g_return_if_fail (xccv->atv != NULL);
 
   provider = gtk_css_provider_new();
   display = gdk_display_get_default();
   screen = gdk_display_get_default_screen(display);
   gtk_style_context_add_provider_for_screen (screen,
-						GTK_STYLE_PROVIDER (provider),
-						GTK_STYLE_PROVIDER_PRIORITY_USER);
-  if (strlen(file))
+	GTK_STYLE_PROVIDER (provider), GTK_STYLE_PROVIDER_PRIORITY_USER);
+  if (strlen (file))
     half = g_strdup_printf ("url(\"%s\")", file);
   else
     half = g_strdup ("none");
@@ -467,21 +502,12 @@ xc_chat_view_set_background (XcChatView *xccv, gchar *file)
   g_object_unref (provider);
   g_free (half);
   g_free (full);
-#else
-	g_print ("File: '%s'.\n", file);
-#endif
 }
 
 
 // TODO: All these can wait
 void
-/*
-#ifdef GTK3
 xc_chat_view_set_palette (XcChatView *xccv, GdkRGBA palette[])
-#else
-*/
-xc_chat_view_set_palette (XcChatView *xccv, GdkColor palette[])
-//#endif
 {
 // https://developer-old.gnome.org/gdk3/stable/gdk3-Colors.html#GdkColor
 // https://developer-old.gnome.org/gdk3/stable/gdk3-RGBA-Colors.html#GdkRGBA
@@ -599,7 +625,9 @@ xc_chat_view_copy_selection (XcChatView *xccv)
   gchar		*h, *m, *dt_str, *nl,
 		*newl = "\n",  *blank = "";
 
-  rows = gtk_tree_selection_get_selected_rows (xccv->select, &model);
+  XcChatViewClass *klass = XC_CHAT_VIEW_GET_CLASS(xccv);
+
+  rows = gtk_tree_selection_get_selected_rows (xccv->atv->select, &model);
 
   nl = blank;
   for (r = rows; r != NULL; r = r->next)
@@ -611,7 +639,7 @@ xc_chat_view_copy_selection (XcChatView *xccv)
 				SFS_HANDLE, &h,
 				SFS_MESSAG, &m, -1);
       g_string_append (hold, nl);
-      if (xccv->timestamps)
+      if (klass->timestamps)
       {
         if (gd)
         {
@@ -785,7 +813,6 @@ xc_chat_view_update_search_widget (XcChatView *xccv) {
 to process the PREV/NEXT buttons through this func. */
 void
 xc_chat_view_run_search (XcChatView *xccv, const gchar *stext, gint flags, GError **serr) {
-	//GtkTreeModel *model = gtk_tree_view_get_model (xccv->tview);
 	GtkTreeModel *model = GTK_TREE_MODEL (xccv->store);
 	GString *hold = g_string_sized_new (1024);
 	GDateTime *gd;
@@ -793,8 +820,11 @@ xc_chat_view_run_search (XcChatView *xccv, const gchar *stext, gint flags, GErro
 	gboolean valid;
 	gchar *dt_str, *h, *m, *temp;
 
+	XcChatViewClass *klass = XC_CHAT_VIEW_GET_CLASS(xccv);
+
 	if (stext[0] == '\0') {
-		gtk_tree_selection_unselect_all (xccv->select);
+		if (xccv->atv != NULL)
+			gtk_tree_selection_unselect_all (xccv->atv->select);
 		g_string_assign (xccv->search_label, "---");
 		xc_chat_view_update_search_widget (xccv);
 		return;
@@ -839,7 +869,7 @@ xc_chat_view_run_search (XcChatView *xccv, const gchar *stext, gint flags, GErro
 				SFS_GDTIME, &gd,
 				SFS_HANDLE, &h,
 				SFS_MESSAG, &m, -1);
-		if (xccv->timestamps && gd)
+		if (klass->timestamps && gd)
 			dt_str = g_date_time_format (gd, xccv->dtformat);
 
 		g_string_append_printf (hold, "%s %s %s", dt_str, h, m);
@@ -859,7 +889,7 @@ xc_chat_view_run_search (XcChatView *xccv, const gchar *stext, gint flags, GErro
 
 		if (gd) {
 			g_date_time_unref (gd);
-			if (xccv->timestamps)
+			if (klass->timestamps)
 				g_free (dt_str);
 		}
 		g_free (h);
@@ -874,7 +904,8 @@ xc_chat_view_run_search (XcChatView *xccv, const gchar *stext, gint flags, GErro
 	if (xccv->search_paths)
 		xc_chat_view_next_search (xccv, FALSE);
 	else
-		gtk_tree_selection_unselect_all (xccv->select);
+		if (xccv->atv != NULL)
+			gtk_tree_selection_unselect_all (xccv->atv->select);
 
 	g_string_free (hold, TRUE);
 	return;
@@ -898,9 +929,9 @@ xc_chat_view_next_search (XcChatView *xccv, gboolean direction) {
 	}
 
 	if (xccv->search_current->data) {
-		gtk_tree_selection_unselect_all (xccv->select);
-		gtk_tree_selection_select_path (xccv->select, xccv->search_current->data);
-		gtk_tree_view_scroll_to_cell (xccv->tview, xccv->search_current->data, NULL, FALSE, 0, 0);
+		gtk_tree_selection_unselect_all (xccv->atv->select);
+		gtk_tree_selection_select_path (xccv->atv->select, xccv->search_current->data);
+		gtk_tree_view_scroll_to_cell (xccv->atv->tview, xccv->search_current->data, NULL, FALSE, 0, 0);
 
 		g_string_printf (xccv->search_label, "%d of %d", xccv->search_now, xccv->search_total);
 		xc_chat_view_update_search_widget (xccv);
@@ -920,6 +951,8 @@ xc_chat_view_lastlog (XcChatView *xccv, XcChatView *target, const gchar *text, g
 	gboolean valid;
 	gchar *dt_str, *h, *m;
 
+	XcChatViewClass *klass = XC_CHAT_VIEW_GET_CLASS(xccv);
+
 	xc_chat_view_clear (target, 0);
 
 	if (gtk_tree_model_get_iter_first (model, &iter)) {
@@ -929,7 +962,7 @@ xc_chat_view_lastlog (XcChatView *xccv, XcChatView *target, const gchar *text, g
 					SFS_GDTIME, &gd,
 					SFS_HANDLE, &h,
 					SFS_MESSAG, &m, -1);
-			if (xccv->timestamps && gd)
+			if (klass->timestamps && gd)
 				dt_str = g_date_time_format (gd, xccv->dtformat);
 
 			g_string_append_printf (hold, "%s %s %s", dt_str, h, m);
@@ -939,7 +972,7 @@ xc_chat_view_lastlog (XcChatView *xccv, XcChatView *target, const gchar *text, g
 
 			if (gd) {
 				g_date_time_unref (gd);
-				if (xccv->timestamps)
+				if (klass->timestamps)
 					g_free (dt_str);
 			}
 			g_free (h);
@@ -953,26 +986,21 @@ xc_chat_view_lastlog (XcChatView *xccv, XcChatView *target, const gchar *text, g
 }
 
 static void
-tview_reparented (GtkWidget *tview, GtkWidget *old_parent, gpointer us) {
+cb_tview_reparented (GtkWidget *tview, GtkWidget *old_parent, gpointer us) {
 	XcChatView *xccv = XC_CHAT_VIEW (us);
+	g_return_if_fail (xccv->atv->tview == GTK_TREE_VIEW (tview));
 
-	xccv->parent_widget = gtk_widget_get_parent (GTK_WIDGET (xccv->tview));
-
-	if (!xccv->parent_widget) {
-		xccv->parent_vadj = NULL;
-		return;
-	}
-	if (xccv->parent_widget && GTK_IS_SCROLLED_WINDOW (xccv->parent_widget))
-		xccv->parent_vadj = gtk_scrolled_window_get_vadjustment (GTK_SCROLLED_WINDOW (xccv->parent_widget));
+	xccv->atv->vadj = gtk_scrollable_get_vadjustment (GTK_SCROLLABLE (xccv->atv->tview));
 }
 
 static gboolean
 is_scrolled_down (XcChatView *xccv) {
-	gdouble page_size = gtk_adjustment_get_page_size (xccv->parent_vadj);
+	g_return_val_if_fail ((xccv->atv != NULL && xccv->atv->vadj != NULL), FALSE);
+	gdouble page_size = gtk_adjustment_get_page_size (xccv->atv->vadj);
 	if (page_size == 0.0)
 		return TRUE; // not scrolling yet ... I think.
-	gdouble value = gtk_adjustment_get_value (xccv->parent_vadj);
-	gdouble upper = gtk_adjustment_get_upper (xccv->parent_vadj);
+	gdouble value = gtk_adjustment_get_value (xccv->atv->vadj);
+	gdouble upper = gtk_adjustment_get_upper (xccv->atv->vadj);
 
 	if (value <= upper - page_size)
 		return TRUE;
@@ -982,24 +1010,26 @@ is_scrolled_down (XcChatView *xccv) {
 
 void
 xc_chat_view_push_down_scrollbar (XcChatView *xccv) {
-	gdouble page_size = gtk_adjustment_get_page_size (xccv->parent_vadj);
-	gdouble upper = gtk_adjustment_get_upper (xccv->parent_vadj);
+	g_return_if_fail (xccv->atv != NULL && xccv->atv->vadj != NULL);
 
-	gtk_adjustment_set_value (xccv->parent_vadj, upper - page_size);
+	gdouble page_size = gtk_adjustment_get_page_size (xccv->atv->vadj);
+	gdouble upper = gtk_adjustment_get_upper (xccv->atv->vadj);
+
+	gtk_adjustment_set_value (xccv->atv->vadj, upper - page_size);
 }
 
 
 /*
-xccv->parent_reparent_cb_id = g_signal_connect(xccv->parent_vadj, "changed", G_CALLBACK(on_adjustment_changed), xccv);
+xccv-> parent_re parent_cb_id = g_signal_connect(xccv-> parent_vadj, "changed", G_CALLBACK(on_adjustment_changed), xccv);
 
-	if (old_parent && xccv->parent_reparent_cb_id != 0) {
-		g_signal_handler_disconnect (xccv->tview, xccv->parent_reparent_cb_id);
-		xccv->parent_reparent_cb_id = 0;
+	if (old_parent && xccv-> parent_reparent_cb_id != 0) {
+		g_signal_handler_disconnect (xccv-> tview, xccv-> parent_reparent_cb_id);
+		xccv-> parent_reparent_cb_id = 0;
 	}
-		// xccv->parent_reparent_cb_id =
-			// g_signal_connect (xccv->tview, "parent-set", G_CALLBACK (xc_chat_view_reparented), xccv);
+		// xccv-> parent_reparent_cb_id =
+			// g_signal_connect (xccv-> tview, "parent-set", G_CALLBACK (xc_chat_view_reparented), xccv);
 	if (xccv->parent_widget) {
-		xccv->parent_widget_cb_id = g_signal_connect (xccv->parent_widget,
+		xccv-> parent_widget_cb_id = g_signal_connect (xccv->parent_widget,
 				"size-allocate", G_CALLBACK(xc_chat_view_resizing), xccv);
 	}
 
@@ -1014,20 +1044,20 @@ xc_chat_view_resizing (GtkWidget *scrolledw, GdkRectangle *alloc, gpointer us) {
 	GtkTreeViewColumn *col;
 	gint wcl;
 
-	if (xccv->word_wrap && xccv->parent_widget) {
-		wcl = gtk_widget_get_allocated_width (GTK_WIDGET (xccv->tview));
+	if (xccv-> word_wrap && xccv->parent_widget) {
+		wcl = gtk_widget_get_allocated_width (GTK_WIDGET (xccv-> tview));
 
-		col = gtk_tree_view_get_column (xccv->tview, TVC_TIMED);
+		col = gtk_tree_view_get_column (xccv-> tview, TVC_TIMED);
 		if (gtk_tree_view_column_get_visible (col))
 			wcl -= gtk_tree_view_column_get_width (col);
-		col = gtk_tree_view_get_column (xccv->tview, TVC_HANDLE);
+		col = gtk_tree_view_get_column (xccv-> tview, TVC_HANDLE);
 		xccv->word_wrap_width = wcl - gtk_tree_view_column_get_width (col);
 
 g_print ("test %d: %s %d\n", __LINE__, __FILE__, xccv->word_wrap_width);
 		xc_chat_view_set_wordwrap_real (xccv);
 	}
 }
-//					col = gtk_tree_view_get_column (xccv->tview, TVC_MESSAGE);
+					col = gtk_tree_view_get_column (xccv-> tview, TVC_MESSAGE);
 */
 
 
@@ -1036,3 +1066,4 @@ g_printerr ("test %d: %s\n", __LINE__, __FILE__);
 g_printerr ("Widget: %s\n", G_OBJECT_TYPE_NAME (sess->gui->menu_item[id]));
 g_printerr ("Class: %s\n", G_OBJECT_TYPE_NAME (sess->gui->menu_item[id]));
 */
+
