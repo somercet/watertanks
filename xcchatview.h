@@ -80,12 +80,14 @@ enum storefs {
 struct
 atview {
 	GtkTreeView *tview;
+	GtkScrolledWindow *sw;
 	GtkCellRenderer *cell_td, *cell_hn, *cell_ms;
 	GtkTreeSelection *select;
 	GtkAdjustment *vadj;
 };
 
-struct msgbase {
+struct
+msgbase {
 	GtkTreePath *row;
 	GString *message;
 	GString *handle;
@@ -103,6 +105,11 @@ _XcChatView
   GtkClipboard	*clippy;
   gulong	reparent_cb_id;
   gulong	tview_map_cb_id;
+  gulong	valued_cb_id;
+  gulong	edged_cb_id;
+  gulong	scrolled_cb_id;
+//  gulong	upordown_cb_id;
+  gdouble	upscrolled;
 
   gchar		*dtformat;
   gchar		*scrollback_filename;
@@ -139,14 +146,7 @@ _XcChatViewClass
   gboolean	word_wrap;
   GSList	*lstview;
 
-/* Standard OOP form function decs go here */
-  void (* append)	(XcChatView *xccv, guchar *message, gint message_len, time_t stamp);
-  void (* append_indent)	(XcChatView *xccv, guchar *handle, gint handle_len, guchar *message, gint message_len, time_t stamp );
-  void (* append0)	(XcChatView *xccv, GDateTime *dtime, gchar *handle, gchar *message);
-  void (* prepend0)	(XcChatView *xccv, GDateTime *dtime, gchar *handle, gchar *message);
-  void (* tview_init)	(XcChatView *self, struct atview *atv);
-  void (* attach)	(XcChatView *self, struct atview *atv);
-  void (* detach)	(XcChatView *self);
+/* Virtual function overrides here */
 };
 
 

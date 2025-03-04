@@ -28,18 +28,24 @@ static void	cell_func_dtime (	GtkTreeViewColumn	*tree_column,
 					GtkTreeModel		*tree_model,
 					GtkTreeIter		*iter,
 					gpointer		data );
-static void	xc_chat_view_init (	XcChatView		*xccv );
-static void	xc_chat_view_class_init	(XcChatViewClass	*class );
-static void	xc_chat_view_dispose (	GObject			*object );
+static void	set_gdtime (GtkCellRenderer *cell, gchar *format, GDateTime *dtime);
+static void	xc_chat_view_init (XcChatView *xccv);
+static void	xc_chat_view_class_init	(XcChatViewClass *class);
+static void	xc_chat_view_dispose (GObject *object );
 static void	xc_chat_view_load_scrollback_finish (GObject *sourceobject, GAsyncResult *result, gpointer userdata);
 static void	xc_chat_view_load_scrollback_run (GTask *task, gpointer sobj, gpointer ud_file, GCancellable *cancellable);
 static void	xc_chat_view_update_line_count (XcChatView *xccv, gint lines);
 static void	xc_chat_view_set_wordwrap_real (XcChatView *xccv);
 static void	xc_chat_view_clear_search (XcChatView *xccv);
 static void	xc_chat_view_update_search_widget (XcChatView *xccv);
-static gboolean	is_scrolled_down (XcChatView *xccv);
+//static gboolean	is_scrolled_down (XcChatView *xccv);
 static void	cb_tview_reparented (GtkWidget *tview, GtkWidget *old_parent, gpointer us);
 static void	cb_mapped (GtkWidget *tview, gpointer user_data);
+static void	cb_edged (GtkScrolledWindow *scrolled_window, GtkPositionType pos, gpointer user_data);
+static gboolean	cb_scrolled (GtkWidget *widget, GdkEventScroll *event, gpointer user_data);
+//static gboolean	cb_upordown (GtkWidget *widget, GdkEvent *event, gpointer user_data);
+static void	cb_valued (GtkAdjustment *adjustment, gpointer user_data);
+
 static gboolean	cb_timeout (gpointer user_data);
 
 G_DEFINE_TYPE(XcChatView, xc_chat_view, G_TYPE_OBJECT)
@@ -93,29 +99,20 @@ xc_chat_view_init (XcChatView *xccv)
   xccv->timeout = g_timeout_add (5000, G_SOURCE_FUNC (cb_timeout), xccv);
   xccv->lorem = "Lorem ipsum dolor sit amet, consectetur adipiscing elit.";
   xccv->ipsum = "Marcus Tullius Cicero";
+
+  xccv->upscrolled = 0.0;
 }
 
-static gboolean
-cb_timeout (gpointer user_data)
-{
-  g_return_val_if_fail (XC_IS_CHAT_VIEW (user_data), FALSE);
-  XcChatView *xccv = XC_CHAT_VIEW (user_data);
-
-  GDateTime *gdt = g_date_time_new_now_local ();
-  xc_chat_view_append0 (xccv, gdt, xccv->ipsum, xccv->lorem);
-  g_date_time_unref (gdt);
-  return TRUE;
-}
 
 static void
 xc_chat_view_class_init (XcChatViewClass *klass)
 {
-  GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
   klass->timestamps = TRUE;
   klass->word_wrap = FALSE;
   klass->lstview = NULL;
 
   /* virtual function overrides go here */
+  GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
   gobject_class->dispose = xc_chat_view_dispose;
 
   /* property and signal definitions go here */
@@ -128,6 +125,8 @@ xc_chat_view_class_init (XcChatViewClass *klass)
 	NULL,		// GSignalCMarshaller
 	G_TYPE_NONE,	// return type
 	0);		// param # // params G_TYPE_UINT);
+
+  /* signal functions go here */
 }
 
 
@@ -159,30 +158,50 @@ xc_chat_view_dispose (GObject *object)
   G_OBJECT_CLASS (xc_chat_view_parent_class)->dispose (object);
 }
 
+
+static gboolean
+cb_timeout (gpointer user_data)
+{
+  XcChatView *xccv = XC_CHAT_VIEW (user_data);
+
+  GDateTime *gdt = g_date_time_new_now_local ();
+  xc_chat_view_append0 (xccv, gdt, xccv->ipsum, xccv->lorem);
+  g_date_time_unref (gdt);
+  return TRUE;
+}
+
+
 static void
 cell_func_dtime (	GtkTreeViewColumn	*tree_column,
 			GtkCellRenderer	*cell,
 			GtkTreeModel	*tree_model,
 			GtkTreeIter	*iter,
-			gpointer	xccvah)
+			gpointer	userdata)
 {
-  XcChatView *xccv = xccvah;
+  XcChatView *xccv = XC_CHAT_VIEW (userdata);
   GDateTime *dtime;
 
   gtk_tree_model_get (tree_model, iter, SFS_GDTIME, &dtime, -1);
-  if (! dtime)
+
+  set_gdtime (cell, xccv->dtformat, dtime);
+  //g_date_time_unref (dtime);
+}
+
+
+static void
+set_gdtime (GtkCellRenderer *cell, gchar *format,  GDateTime *dtime)
+{
+  if (dtime)
+    g_object_set (cell, "text", g_date_time_format (dtime, format), NULL);
+  else
     g_object_set (cell, "text", "", NULL);
-  else {
-    g_object_set (cell, "text", g_date_time_format (dtime, xccv->dtformat), NULL);
-    g_date_time_unref (dtime);
-  }
 }
 
 
 void
 xc_chat_view_tview_init (XcChatView *xccv, struct atview *atv)
 {
-  g_return_if_fail (XC_IS_CHAT_VIEW (xccv) && atv->select == NULL);
+  g_return_if_fail (atv->select == NULL);
 
   atv->cell_td = gtk_cell_renderer_text_new ();
   atv->cell_hn = gtk_cell_renderer_text_new ();
@@ -217,9 +236,12 @@ xc_chat_view_attach (XcChatView *xccv, struct atview *atv)
   xccv->atv = atv;
   gtk_tree_view_set_model (xccv->atv->tview, GTK_TREE_MODEL (xccv->store));
 
-// TODO add get vadjustment
-  xccv->reparent_cb_id = g_signal_connect (xccv->atv->tview, "parent-set", G_CALLBACK (cb_tview_reparented), xccv);
+  xccv->reparent_cb_id  = g_signal_connect (xccv->atv->tview, "parent-set", G_CALLBACK (cb_tview_reparented), xccv);
   xccv->tview_map_cb_id = g_signal_connect (xccv->atv->tview, "map", G_CALLBACK (cb_mapped), xccv);
+  xccv->valued_cb_id    = g_signal_connect (xccv->atv->vadj, "value-changed", G_CALLBACK (cb_valued), xccv);
+  xccv->edged_cb_id     = g_signal_connect (xccv->atv->sw, "edge-reached", G_CALLBACK (cb_edged), xccv);
+  xccv->scrolled_cb_id  = g_signal_connect (GTK_WIDGET (xccv->atv->tview), "scroll-event", G_CALLBACK (cb_scrolled), xccv);
+//  xccv->upordown_cb_id = g_signal_connect (GTK_WIDGET (xccv->atv->tview), "key-release-event", G_CALLBACK (cb_upordown), NULL);
 }
 
 
@@ -232,11 +254,73 @@ xc_chat_view_detach (XcChatView *xccv)
 
   g_signal_handler_disconnect (xccv->atv->tview, xccv->reparent_cb_id);
   g_signal_handler_disconnect (xccv->atv->tview, xccv->tview_map_cb_id);
+  g_signal_handler_disconnect (xccv->atv->vadj,  xccv->valued_cb_id);
+  g_signal_handler_disconnect (xccv->atv->sw,    xccv->edged_cb_id);
+  g_signal_handler_disconnect (xccv->atv->tview, xccv->scrolled_cb_id);
+//  g_signal_handler_disconnect (xccv->atv->tview, xccv->upordown_cb_id);
 
   gtk_tree_view_set_model (xccv->atv->tview, NULL);
   xccv->atv = NULL;
 }
 
+
+static void
+cb_edged (GtkScrolledWindow *sw, GtkPositionType pos, gpointer user_data) {
+	XcChatView *xccv = XC_CHAT_VIEW (user_data);
+	if (pos == GTK_POS_BOTTOM) {
+		g_print ("edged\n");
+		xccv->upscrolled = 0.0;
+	}
+}
+
+
+static gboolean
+cb_scrolled (GtkWidget *widget, GdkEventScroll *event, gpointer user_data) {
+	XcChatView *xccv = XC_CHAT_VIEW (user_data);
+	gdouble delta_x, delta_y; // neg is up
+
+	switch (event->direction) {
+	case GDK_SCROLL_SMOOTH:
+		if (gdk_event_get_scroll_deltas ((GdkEvent *)event, &delta_x, &delta_y)
+						&& delta_y < 0.0) {
+			g_print ("delta y is %f\n", delta_y);
+			xccv->upscrolled = 1.0;
+		}
+		break;
+	case GDK_SCROLL_UP:
+		g_print ("scroll up\n");
+		xccv->upscrolled = 1.0;
+		break;
+	default:
+		break;
+	}
+	return FALSE;
+}
+
+static void
+cb_valued (GtkAdjustment *adj, gpointer user_data) {
+	XcChatView *xccv = XC_CHAT_VIEW (user_data);
+	if (xccv->upscrolled == 0.0)
+		xc_chat_view_push_down_scrollbar (xccv);
+}
+
+
+/*
+static gboolean
+cb_upordown (GtkWidget *widget, GdkEvent *event, gpointer user_data) {
+	switch (((GdkEventKey *)event)->keyval) {
+	case GDK_KEY_Page_Up:
+		g_print ("Page Up pressed\n");
+		break;
+	case GDK_KEY_Page_Down:
+		g_print ("Page Down pressed\n");
+		break;
+	default:
+		break;
+	}
+	return FALSE;
+}
+*/
 
 // TODO: push the difference between append and append_indent
 // out to the calling code, which can set NULL as well as xccv.
@@ -256,7 +340,7 @@ xc_chat_view_append_indent (XcChatView *xccv,
 {
   GDateTime	*gdt = NULL;
   GtkTreeIter	iter;
-  gboolean	down;
+//  gboolean	down;
   gchar *h, *m;
 
   if (stamp == 0)
@@ -281,7 +365,7 @@ xc_chat_view_append_indent (XcChatView *xccv,
   else
     m = g_strndup ((gchar *) mssg, mssg_len);
 
-  down = is_scrolled_down (xccv);
+  //down = is_scrolled_down (xccv);
 
   g_mutex_lock (&xccv->mutex);
   gtk_tree_store_append (xccv->store, &iter, NULL);
@@ -294,7 +378,7 @@ xc_chat_view_append_indent (XcChatView *xccv,
   xc_chat_view_update_line_count (xccv, 1);
   g_mutex_unlock (&xccv->mutex);
 
-  if (down)
+  if (xccv->upscrolled == 0.0)
     xc_chat_view_push_down_scrollbar (xccv);
 
   g_date_time_unref (gdt);
@@ -325,9 +409,9 @@ xc_chat_view_append0 (	XcChatView	*xccv,
 			gchar		*handle,
 			gchar		*message ) {
   GtkTreeIter	iter;
-  gboolean	down;
+//  gboolean	down;
 
-  down = is_scrolled_down (xccv);
+//  down = is_scrolled_down (xccv);
 
   g_mutex_lock (&xccv->mutex);
   gtk_tree_store_append (xccv->store, &iter, NULL);
@@ -340,8 +424,8 @@ xc_chat_view_append0 (	XcChatView	*xccv,
   xc_chat_view_update_line_count (xccv, 1);
   g_mutex_unlock (&xccv->mutex);
 
-
-  if (down)
+//  if (down)
+  if (xccv->upscrolled == 0.0)
     xc_chat_view_push_down_scrollbar (xccv);
 }
 
@@ -359,23 +443,28 @@ xc_chat_view_update_line_count (XcChatView *xccv, gint l) {
 
 void
 xc_chat_view_clear (XcChatView	*xccv, gint lines) {
+	g_return_if_fail (XC_IS_CHAT_VIEW (xccv));
 	GtkTreeIter iter;
-	gint c;
+	gint alines = ABS(lines);
+	gint count = gtk_tree_model_iter_n_children (GTK_TREE_MODEL (xccv->store), NULL);
 
-	if (lines < 0) // from bottom, TODO: "/CLEAR -nnn" command
-		;
-	else if (lines > 0) { // from top
-		gtk_tree_model_get_iter_first (GTK_TREE_MODEL (xccv->store), &iter);
-		for (c = lines; c > 0; c--) {
-			if (! gtk_tree_store_remove (xccv->store, &iter))
-				g_printerr ("not deleted on %d of %d lines.\n", c, lines);
-			else
-				xccv->lines_current--;
-		}
-	} else { // all
+	if (lines == 0 || alines >= count) {	// all
 		gtk_tree_store_clear (xccv->store);
 		xccv->lines_current = 0;
-	}
+		xccv->upscrolled = 0.0;
+		return;
+	} else if (lines > 0)	// from top
+		gtk_tree_model_get_iter_first (GTK_TREE_MODEL (xccv->store), &iter);
+	else			// from bottom
+		gtk_tree_model_iter_nth_child (GTK_TREE_MODEL (xccv->store), &iter, NULL, count - alines);
+
+	for (gint c = alines; c > 0; c--)
+		if (gtk_tree_store_remove (xccv->store, &iter))
+			xccv->lines_current--;
+		else {
+			g_printerr ("not deleted on %d of %d lines.\n", c, lines);
+			c = 0;
+		}
 }
 
 
@@ -409,13 +498,14 @@ cb_mapped (GtkWidget *tview, gpointer user_data) {
 
 static void
 xc_chat_view_set_wordwrap_real (XcChatView *xccv) {
-	gboolean down = FALSE;
+//	gboolean down = FALSE;
 
-	if (is_scrolled_down (xccv))
-		down = TRUE;
+//	if (is_scrolled_down (xccv))
+//		down = TRUE;
 	g_object_set (xccv->atv->cell_ms, "wrap-width", xccv->word_wrap_width, NULL);
 	gtk_tree_view_column_queue_resize (gtk_tree_view_get_column (xccv->atv->tview, TVC_MESSAGE));
-	if (down)
+//	if (down)
+	if (xccv->upscrolled == 0.0)
 		xc_chat_view_push_down_scrollbar (xccv);
 }
 
@@ -993,73 +1083,53 @@ cb_tview_reparented (GtkWidget *tview, GtkWidget *old_parent, gpointer us) {
 	xccv->atv->vadj = gtk_scrollable_get_vadjustment (GTK_SCROLLABLE (xccv->atv->tview));
 }
 
+/* few rows, big window:
+    value = 0.000000
+    upper = 0.000000
+page size = 1.000000
+
+normal:
+    value = 377.000000
+    upper = 650.000000
+page size = 273.000000
+*/
+
+/*
 static gboolean
 is_scrolled_down (XcChatView *xccv) {
-	g_return_val_if_fail ((xccv->atv != NULL && xccv->atv->vadj != NULL), FALSE);
-	gdouble page_size = gtk_adjustment_get_page_size (xccv->atv->vadj);
-	if (page_size == 0.0)
-		return TRUE; // not scrolling yet ... I think.
-	gdouble value = gtk_adjustment_get_value (xccv->atv->vadj);
-	gdouble upper = gtk_adjustment_get_upper (xccv->atv->vadj);
+	g_return_val_if_fail ((xccv->atv != NULL && GTK_IS_ADJUSTMENT (xccv->atv->vadj)), FALSE);
 
-	if (value <= upper - page_size)
+	gdouble upper = gtk_adjustment_get_upper (xccv->atv->vadj);
+	if (upper == 0.0)
+		return TRUE;
+	gdouble value = gtk_adjustment_get_value (xccv->atv->vadj);
+	gdouble page_size = gtk_adjustment_get_page_size (xccv->atv->vadj);
+
+	if (upper == value + page_size)
 		return TRUE;
 	else
 		return FALSE;
 }
+*/
+
 
 void
 xc_chat_view_push_down_scrollbar (XcChatView *xccv) {
-	g_return_if_fail (xccv->atv != NULL && xccv->atv->vadj != NULL);
+	g_return_if_fail (xccv->atv != NULL && GTK_IS_ADJUSTMENT (xccv->atv->vadj));
 
 	gdouble page_size = gtk_adjustment_get_page_size (xccv->atv->vadj);
 	gdouble upper = gtk_adjustment_get_upper (xccv->atv->vadj);
 
 	gtk_adjustment_set_value (xccv->atv->vadj, upper - page_size);
 }
+// g_idle_add((GSourceFunc)scroll_to_bottom, xccv);
 
+// GtkTreePath *path = gtk_tree_path_new_from_indices(last_row_index, -1);
+// gtk_tree_view_scroll_to_cell(xccv->atv->treeview, path, NULL, FALSE, 0, 0);
+// gtk_tree_path_free(path);
 
-/*
-xccv-> parent_re parent_cb_id = g_signal_connect(xccv-> parent_vadj, "changed", G_CALLBACK(on_adjustment_changed), xccv);
-
-	if (old_parent && xccv-> parent_reparent_cb_id != 0) {
-		g_signal_handler_disconnect (xccv-> tview, xccv-> parent_reparent_cb_id);
-		xccv-> parent_reparent_cb_id = 0;
-	}
-		// xccv-> parent_reparent_cb_id =
-			// g_signal_connect (xccv-> tview, "parent-set", G_CALLBACK (xc_chat_view_reparented), xccv);
-	if (xccv->parent_widget) {
-		xccv-> parent_widget_cb_id = g_signal_connect (xccv->parent_widget,
-				"size-allocate", G_CALLBACK(xc_chat_view_resizing), xccv);
-	}
-
-
-Abandoned attempt to get auto resizing of wordwrap.  May come in handy later.
-
-static void	xc_chat_view_resizing (GtkWidget *scrolledw, GdkRectangle *alloc, gpointer us);
-
-static void
-xc_chat_view_resizing (GtkWidget *scrolledw, GdkRectangle *alloc, gpointer us) {
-	XcChatView *xccv = XC_CHAT_VIEW (us);
-	GtkTreeViewColumn *col;
-	gint wcl;
-
-	if (xccv-> word_wrap && xccv->parent_widget) {
-		wcl = gtk_widget_get_allocated_width (GTK_WIDGET (xccv-> tview));
-
-		col = gtk_tree_view_get_column (xccv-> tview, TVC_TIMED);
-		if (gtk_tree_view_column_get_visible (col))
-			wcl -= gtk_tree_view_column_get_width (col);
-		col = gtk_tree_view_get_column (xccv-> tview, TVC_HANDLE);
-		xccv->word_wrap_width = wcl - gtk_tree_view_column_get_width (col);
-
-g_print ("test %d: %s %d\n", __LINE__, __FILE__, xccv->word_wrap_width);
-		xc_chat_view_set_wordwrap_real (xccv);
-	}
-}
-					col = gtk_tree_view_get_column (xccv-> tview, TVC_MESSAGE);
-*/
-
+// gtk_widget_queue_draw(GTK_WIDGET(xccv->atv->treeview));
+// gtk_adjustment_set_value(xccv->atv->vadj, gtk_adjustment_get_upper(xccv->atv->vadj));
 
 /*
 g_printerr ("test %d: %s\n", __LINE__, __FILE__);

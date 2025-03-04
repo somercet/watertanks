@@ -169,11 +169,12 @@ create_tabs (XcChatView *xccv, GtkWidget *stack, char *name) {
 
 	struct atview *atv = g_new0 (struct atview, 1);
 	atv->tview = GTK_TREE_VIEW (tview);
+	atv->sw = GTK_SCROLLED_WINDOW (sw);
 
 	struct Xccvbit *newtab = g_new0 (struct Xccvbit, 1);
 	newtab->xccv = xccv;
 	newtab->child = sw;
-	newtab->atv = atv;;
+	newtab->atv = atv;
 	stakk = g_list_append (stakk, newtab);
 
 	xc_chat_view_tview_init (xccv, atv);
