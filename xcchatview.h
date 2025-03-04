@@ -110,6 +110,7 @@ _XcChatView
   gulong	scrolled_cb_id;
 //  gulong	upordown_cb_id;
   gdouble	upscrolled;
+  guint		idlepshdwn_id;
 
   gchar		*dtformat;
   gchar		*scrollback_filename;
