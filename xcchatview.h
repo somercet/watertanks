@@ -29,7 +29,7 @@ G_BEGIN_DECLS
 #define XC_IS_CHAT_VIEW_CLASS(klass)	(G_TYPE_CHECK_CLASS_TYPE ((klass),	XC_TYPE_CHAT_VIEW))
 #define XC_CHAT_VIEW_GET_CLASS(obj)	(G_TYPE_INSTANCE_GET_CLASS ((obj),	XC_TYPE_CHAT_VIEW, XcChatViewClass))
 
-typedef struct _XcChatView	XcChatView;
+typedef struct _XcChatView XcChatView;
 typedef struct _XcChatViewClass	XcChatViewClass;
 
 #define ATTR_BOLD	'\002'
@@ -77,30 +77,46 @@ enum storefs {
 	SFS_COLNUM
 };
 
-struct _XcChatView
-{
-  /* Instance variables */
-  /* Public  */
-  GObject	parent;
-  GtkTreeView	*tview;
-  GtkListStore	*store;
-  GtkClipboard	*clippy;
-  //GtkWindow	*parent_widget;
-  GtkWidget	*parent_widget;
-  gulong	parent_reparent_cb_id;
-  GtkAdjustment	*parent_vadj;
+struct
+atview {
+	GtkTreeView *tview;
+	GtkScrolledWindow *sw;
+	GtkCellRenderer *cell_td, *cell_hn, *cell_ms;
+	GtkTreeSelection *select;
+	GtkAdjustment *vadj;
+};
 
-  GtkTreeSelection	*select;
-  GtkCellRenderer	*cell_td, *cell_hn, *cell_ms;
+struct
+msgbase {
+	GtkTreePath *row;
+	GString *message;
+	GString *handle;
+	GString *texttime;
+	GString *format;
+	GDateTime *gdt;
+};
+
+struct
+_XcChatView
+{
+  GObject	parent;
+  struct atview *atv;
+  GtkTreeStore	*store;
+  GtkClipboard	*clippy;
+  gulong	reparent_cb_id;
+  gulong	tview_map_cb_id;
+  gulong	valued_cb_id;
+  gulong	edged_cb_id;
+  gulong	scrolled_cb_id;
+//  gulong	upordown_cb_id;
+  gdouble	upscrolled;
 
   gchar		*dtformat;
   gchar		*scrollback_filename;
 
   guint		lines_max;
   guint		lines_current;
-  gboolean	word_wrap;
   gint		word_wrap_width;
-  gboolean	timestamps;
 
   gchar	*search_text;
   GList	*search_paths;
@@ -117,32 +133,20 @@ struct _XcChatView
   GtkTreeRowReference *marker_pos;
   marker_reset_reason marker_state;
 
-  /* Private */
+  guint		timeout;
+  gchar		*lorem;
+  gchar		*ipsum;
 };
 
-struct _XcChatViewClass
+struct
+_XcChatViewClass
 {
   GObjectClass	parent_class;
+  gboolean	timestamps;
+  gboolean	word_wrap;
+  GSList	*lstview;
 
-/* Standard OOP form function decs go here */
-  void	(* append)	(XcChatView	*xccv,
-			guchar		*message,
-			gint		message_len,
-			time_t		stamp );
-  void (*append_indent)	(XcChatView	*xccv,
-			guchar		*handle,
-			gint		handle_len,
-			guchar		*message,
-			gint		message_len,
-			time_t		stamp );
-  void (* append0)	(XcChatView	*xccv,
-			GDateTime	*dtime,
-			gchar		*handle,
-			gchar		*message);
-  void (* prepend0)	(XcChatView	*xccv,
-			GDateTime	*dtime,
-			gchar		*handle,
-			gchar		*message);
+/* Virtual function overrides here */
 };
 
 
@@ -200,10 +204,8 @@ void xc_chat_view_set_background (	XcChatView	*xccv,
 					gchar		*file );
 // void gtk_xtext_set_palette (GtkXText * xtext, GdkColor palette[]);
 void xc_chat_view_set_palette (		XcChatView	*xccv,
-//#ifdef GTK3
-//					GdkRGBA		palette[] );
-//#else
-					GdkColor	palette[] );
+					GdkRGBA		palette[] );
+
 //#endif
 // menu.c	menu_resetmarker
 // void gtk_xtext_reset_marker_pos (GtkXText *xtext);
@@ -322,6 +324,10 @@ void	xc_chat_view_push_down_scrollbar (	XcChatView	*xccv );
 
 // maingui.c	fe_session_callback, called to kill session
 // void gtk_xtext_buffer_free (xtext_buffer *buf);
+
+void xc_chat_view_tview_init (XcChatView *self, struct atview *atv);
+void xc_chat_view_attach (XcChatView *self, struct atview *atv);
+void xc_chat_view_detach (XcChatView *self);
 
 
 G_END_DECLS

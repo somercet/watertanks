@@ -1,8 +1,8 @@
 
 # indent -linux -pcs -psl -brf -nfca -gts -nfc1 -gts
-#CFLAGS += -DGLIB_DISABLE_DEPRECATION_WARNINGS -std=gnu99 -pipe -Werror -Wall -g $$( pkgconf --cflags gtk+-2.0 )
-#LDFLAGS += $$( pkgconf --libs gtk+-2.0 )
-CFLAGS += -DUSE_GTK3 -std=gnu99 -pipe -Werror -Wall -g $$( pkgconf --cflags gtk+-3.0 )
+#CFLAGS += -DGLIB_DISABLE_DEPRECATION_WARNINGS
+
+CFLAGS += -std=gnu99 -pipe -Werror -Wall -g $$( pkgconf --cflags gtk+-3.0 )
 LDFLAGS += $$( pkgconf --libs gtk+-3.0 )
 
 all: example
@@ -10,12 +10,13 @@ all: example
 example: example.c xcchatview.c
 	$(CC) $(CFLAGS) -o $@ $^	$(LDFLAGS)
 
+newmodel: newmodel.c xcchatview.c
+	$(CC) $(CFLAGS) -o $@ $^	$(LDFLAGS)
+
 .PHONY: clean
 
 clean:
-	rm example
-
-
+	rm example newmodel
 
 # -Wextra -fsanitize=undefined,address
 

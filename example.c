@@ -18,6 +18,7 @@ struct
 Xccvbit {
 	gpointer xccv;
 	gpointer child;
+	gpointer atv;
 };
 
 static XcChatView *
@@ -163,12 +164,21 @@ static void
 create_tabs (XcChatView *xccv, GtkWidget *stack, char *name) {
 	GtkWidget *sw = gtk_scrolled_window_new (NULL, NULL);
 	gtk_stack_add_titled (GTK_STACK (stack), sw, name, name);
-	gtk_container_add (GTK_CONTAINER (sw), GTK_WIDGET (xccv->tview));
+	GtkWidget *tview = gtk_tree_view_new ();
+	gtk_container_add (GTK_CONTAINER (sw), tview);
 
-	struct Xccvbit *newtab = g_new (struct Xccvbit, 1);
+	struct atview *atv = g_new0 (struct atview, 1);
+	atv->tview = GTK_TREE_VIEW (tview);
+	atv->sw = GTK_SCROLLED_WINDOW (sw);
+
+	struct Xccvbit *newtab = g_new0 (struct Xccvbit, 1);
 	newtab->xccv = xccv;
 	newtab->child = sw;
+	newtab->atv = atv;
 	stakk = g_list_append (stakk, newtab);
+
+	xc_chat_view_tview_init (xccv, atv);
+	xc_chat_view_attach (xccv, atv);
 
 	gtk_box_pack_start (searchbits[SI_LABEL], xccv->search_widget, FALSE, FALSE, 0);
 }
@@ -393,18 +403,18 @@ example_activated (GtkApplication *app, gpointer user_data) {
 
 	GMenu *mmenu = g_menu_new ();
 	GMenu *smenu = g_menu_new ();
-	create_menu_item (smenu, "_Copy",	"app.copy",	NULL,	"<ctrl>c",	NULL);
-	create_menu_item (smenu, "Sa_ve",	"app.save",	NULL,	"<ctrl><shift>v",	NULL);
-	create_menu_item (smenu, "_Word Wrap",	"app.wrap",	NULL,	"<ctrl><shift>w",	NULL);
-	create_menu_item (smenu, "Show _Times",	"app.time",	NULL,	"<ctrl>t",	NULL);
-	create_menu_item (smenu, "_Find",	"app.find",	NULL,	"<ctrl>f",	NULL);
-	create_menu_item (smenu, "Find _Next",	"app.next",	NULL,	"<ctrl>g",	NULL);
-	create_menu_item (smenu, "Find _Prev",	"app.prev",	NULL,	"<ctrl><shift>g",	NULL);
-	create_menu_item (smenu, "Page _Up",	"app.pgup",	NULL,	"<ctrl>Prior",	NULL);
-	create_menu_item (smenu, "Page _Down",	"app.pgdn",	NULL,	"<ctrl>Next",	NULL);
-	create_menu_item (smenu, "C_lose",	"app.clos",	NULL,	"<ctrl>w",	NULL);
+	create_menu_item (smenu, "_Copy",	"app.copy",	NULL,	"<Primary>c",	NULL);
+	create_menu_item (smenu, "Sa_ve",	"app.save",	NULL,	"<Primary><Shift>v",	NULL);
+	create_menu_item (smenu, "_Word Wrap",	"app.wrap",	NULL,	"<Primary><Shift>w",	NULL);
+	create_menu_item (smenu, "Show _Times",	"app.time",	NULL,	"<Primary>t",	NULL);
+	create_menu_item (smenu, "_Find",	"app.find",	NULL,	"<Primary>f",	NULL);
+	create_menu_item (smenu, "Find _Next",	"app.next",	NULL,	"<Primary>g",	NULL);
+	create_menu_item (smenu, "Find _Prev",	"app.prev",	NULL,	"<Primary><Shift>g",	NULL);
+	create_menu_item (smenu, "Page _Up",	"app.pgup",	NULL,	"<Primary>Prior",	NULL);
+	create_menu_item (smenu, "Page _Down",	"app.pgdn",	NULL,	"<Primary>Next",	NULL);
+	create_menu_item (smenu, "C_lose",	"app.clos",	NULL,	"<Primary>w",	NULL);
 	create_menu_item (smenu, "_Quit",	"app.quit",	"application-exit",
-									"<ctrl>q",	NULL);
+									"<Primary>q",	NULL);
 	g_menu_append_submenu (mmenu, "E_xample", G_MENU_MODEL (smenu));
 	gtk_application_set_menubar (app, G_MENU_MODEL (mmenu));
 	g_object_unref (mmenu);
