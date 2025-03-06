@@ -102,12 +102,12 @@ _XcChatView
   GObject	parent;
   struct atview *atv;
   GtkTreeStore	*store;
-  GtkClipboard	*clippy;
-  gulong	reparent_cb_id;
-  gulong	tview_map_cb_id;
-  gulong	valued_cb_id;
-  gulong	edged_cb_id;
-  gulong	scrolled_cb_id;
+  gulong	reparent_cb_id,
+		tview_map_cb_id,
+		valued_cb_id,
+		edged_cb_id,
+		scrolled_cb_id,
+		released_cb_id;
 //  gulong	upordown_cb_id;
   gdouble	upscrolled;
   guint		idlepshdwn_id;
@@ -145,6 +145,8 @@ _XcChatViewClass
   GObjectClass	parent_class;
   gboolean	timestamps;
   gboolean	word_wrap;
+  GtkClipboard	*clippy_prime;
+  GtkClipboard	*clippy_sec;
   GSList	*lstview;
 
 /* Virtual function overrides here */
