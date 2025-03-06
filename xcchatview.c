@@ -38,6 +38,7 @@ static void	xc_chat_view_update_line_count (XcChatView *xccv, gint lines);
 static void	xc_chat_view_set_wordwrap_real (XcChatView *xccv);
 static void	xc_chat_view_clear_search (XcChatView *xccv);
 static void	xc_chat_view_update_search_widget (XcChatView *xccv);
+static void	xc_chat_view_copy_selection_real (XcChatView *xccv, GtkClipboard *target);
 //static gboolean	is_scrolled_down (XcChatView *xccv);
 static void	cb_tview_reparented (GtkWidget *tview, GtkWidget *old_parent, gpointer us);
 static void	cb_mapped (GtkWidget *tview, gpointer user_data);
@@ -276,9 +277,12 @@ static void
 cb_released (GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
 	XcChatView *xccv = XC_CHAT_VIEW (user_data);
 
-	if (event->button == GDK_BUTTON_PRIMARY)
-		xc_chat_view_copy_selection (xccv);
+	if (event->button == GDK_BUTTON_PRIMARY) {
+		XcChatViewClass *klass = XC_CHAT_VIEW_GET_CLASS (xccv);
+		xc_chat_view_copy_selection_real (xccv, klass->clippy_prime);
+	}
 }
+
 
 static void
 cb_edged (GtkScrolledWindow *sw, GtkPositionType pos, gpointer user_data) {
@@ -719,8 +723,18 @@ xc_chat_view_set_max_lines (XcChatView *xccv, int max_lines)
   xccv->lines_max = (gint) max_lines;
 }
 
+
 void
-xc_chat_view_copy_selection (XcChatView *xccv)
+xc_chat_view_copy_selection (XcChatView *xccv) {
+	g_return_if_fail (XC_IS_CHAT_VIEW (xccv) && xccv->atv != NULL);
+	XcChatViewClass *klass = XC_CHAT_VIEW_GET_CLASS (xccv);
+
+	xc_chat_view_copy_selection_real (xccv, klass->clippy_sec);
+}
+
+
+static void
+xc_chat_view_copy_selection_real (XcChatView *xccv, GtkClipboard *target)
 {
   GtkTreeModel	*model;
   GtkTreeIter	iter;
@@ -764,7 +778,7 @@ xc_chat_view_copy_selection (XcChatView *xccv)
     }
   }
   g_list_free_full (rows, (GDestroyNotify) gtk_tree_path_free);
-  gtk_clipboard_set_text (klass->clippy_prime, hold->str, hold->len);
+  gtk_clipboard_set_text (target, hold->str, hold->len);
   g_string_free (hold, TRUE);
 }
 
