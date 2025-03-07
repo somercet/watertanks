@@ -31,7 +31,8 @@ static void	cell_func_dtime (	GtkTreeViewColumn	*tree_column,
 //static void	set_gdtime (GtkCellRenderer *cell, gchar *format, GDateTime *dtime);
 static void	xc_chat_view_init (XcChatView *xccv);
 static void	xc_chat_view_class_init	(XcChatViewClass *class);
-static void	xc_chat_view_dispose (GObject *object );
+static void	xc_chat_view_finalize (GObject *object );
+//static void	xc_chat_view_class_finalize (XcChatViewClass *klass);
 static void	xc_chat_view_load_scrollback_finish (GObject *sourceobject, GAsyncResult *result, gpointer userdata);
 static void	xc_chat_view_load_scrollback_run (GTask *task, gpointer sobj, gpointer ud_file, GCancellable *cancellable);
 static void	xc_chat_view_update_line_count (XcChatView *xccv, gint lines);
@@ -40,7 +41,7 @@ static void	xc_chat_view_clear_search (XcChatView *xccv);
 static void	xc_chat_view_update_search_widget (XcChatView *xccv);
 static void	xc_chat_view_copy_selection_real (XcChatView *xccv, GtkClipboard *target);
 //static gboolean	is_scrolled_down (XcChatView *xccv);
-static void	cb_tview_reparented (GtkWidget *tview, GtkWidget *old_parent, gpointer us);
+//static void	cb_tview_reparented (GtkWidget *tview, GtkWidget *old_parent, gpointer us);
 static void	cb_mapped (GtkWidget *tview, gpointer user_data);
 static void	cb_edged (GtkScrolledWindow *scrolled_window, GtkPositionType pos, gpointer user_data);
 static gboolean	cb_scrolled (GtkWidget *widget, GdkEventScroll *event, gpointer user_data);
@@ -67,21 +68,15 @@ static void
 xc_chat_view_init (XcChatView *xccv)
 {
   /* initialisation goes here */
-  xccv->dtformat = g_strdup ("%H:%M:%S");
+  XcChatViewClass *klass = XC_CHAT_VIEW_GET_CLASS (xccv);
+  klass->instance_cnt++;
+
   xccv->word_wrap_width = -2;
 
   xccv->store = gtk_tree_store_new (SFS_COLNUM,
+		G_TYPE_DATE_TIME,
 		G_TYPE_STRING,
-		G_TYPE_STRING,
-		G_TYPE_STRING,
-		G_TYPE_DATE_TIME);
-
-// class?
-
-/*
-  GdkRGBA foo = { 0.0, 0.0, 0.0, 0.0 }; // { R, G, B, A } 0.0 to 1.0 double
-  g_object_set (xccv ->cell_ms, "background-rgba", &foo, NULL);
-*/
+		G_TYPE_STRING);
 
   xccv->lines_max = 1000;
   xccv->lines_current = 0;
@@ -95,11 +90,13 @@ xc_chat_view_init (XcChatView *xccv)
   xccv->search_label = g_string_new ("---");
   xc_chat_view_update_search_widget (xccv);
 
-  xccv->marker_pos = NULL;
   xccv->marker_state = MARKER_WAS_NEVER_SET;
 
   xccv->upscrolled = 0.0;
-
+/*
+  GdkRGBA foo = { 0.0, 0.0, 0.0, 0.0 }; // { R, G, B, A } 0.0 to 1.0 double
+  g_object_set (xccv ->cell_ms, "background-rgba", &foo, NULL);
+*/
   xccv->timeout = g_timeout_add (5000, G_SOURCE_FUNC (cb_timeout), xccv);
   xccv->lorem = "Lorem ipsum dolor sit amet, consectetur adipiscing elit.";
   xccv->ipsum = "Tullius Cicero";
@@ -109,6 +106,7 @@ xc_chat_view_init (XcChatView *xccv)
 static void
 xc_chat_view_class_init (XcChatViewClass *klass)
 {
+  klass->dtformat = g_strdup ("%H:%M:%S");
   klass->timestamps = TRUE;
   klass->word_wrap = FALSE;
   klass->lstview = NULL;
@@ -117,7 +115,7 @@ xc_chat_view_class_init (XcChatViewClass *klass)
 
   /* virtual function overrides go here */
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
-  gobject_class->dispose = xc_chat_view_dispose;
+  gobject_class->finalize = xc_chat_view_finalize;
 
   /* property and signal definitions go here */
   xc_chat_view_signals[XCCV_WORD_CLICK] = g_signal_new("word_click", //place-holder for per-word-menu
@@ -135,9 +133,14 @@ xc_chat_view_class_init (XcChatViewClass *klass)
 
 
 static void
-xc_chat_view_dispose (GObject *object)
+xc_chat_view_finalize (GObject *object)
 {
   XcChatView *xccv = XC_CHAT_VIEW (object);
+  XcChatViewClass *klass = XC_CHAT_VIEW_GET_CLASS (xccv);
+
+  klass->instance_cnt--;
+  if (klass->instance_cnt == 0)
+    g_free (klass->dtformat);
 
   g_source_remove (xccv->timeout);
 
@@ -145,8 +148,6 @@ xc_chat_view_dispose (GObject *object)
 
   if (xccv->scrollback_filename)
     g_free (xccv->scrollback_filename);
-  if (xccv->dtformat)
-    g_free (xccv->dtformat);
 
   g_mutex_clear (&xccv->mutex);
 
@@ -155,13 +156,27 @@ xc_chat_view_dispose (GObject *object)
     g_list_free_full (xccv->search_paths, (GDestroyNotify) gtk_tree_path_free);
     xccv->search_paths = NULL;
   }
-  g_string_free (xccv->search_label, TRUE);
-  gtk_widget_destroy (xccv->search_widget);
-  xccv->search_widget = NULL;
 
-  G_OBJECT_CLASS (xc_chat_view_parent_class)->dispose (object);
+  if (xccv->search_label) {
+    g_string_free (xccv->search_label, TRUE);
+    gtk_widget_destroy (xccv->search_widget);
+    xccv->search_label = NULL;
+    xccv->search_widget = NULL;
+  }
+
+  G_OBJECT_CLASS (xc_chat_view_parent_class)->finalize (object);
 }
 
+/*
+static void
+xc_chat_view_base_class_finalize (XcChatViewClass *klass)
+{
+  if (klass->dtformat) {
+    g_free (klass->dtformat);
+    g_printerr ("got it\n");
+  }
+}
+*/
 
 static gboolean
 cb_timeout (gpointer user_data)
@@ -187,24 +202,13 @@ cell_func_dtime (	GtkTreeViewColumn	*tree_column,
 
   gtk_tree_model_get (tree_model, iter, SFS_GDTIME, &dtime, -1);
 
-  //set_gdtime (cell, xccv->dtformat, dtime);
-  if (dtime)
-    g_object_set (cell, "text", g_date_time_format (dtime, xccv->dtformat), NULL);
-  else
+  if (dtime) {
+    XcChatViewClass *klass = XC_CHAT_VIEW_GET_CLASS (xccv);
+    g_object_set (cell, "text", g_date_time_format (dtime, klass->dtformat), NULL);
+  } else
     g_object_set (cell, "text", "", NULL);
-  //g_date_time_unref (dtime);
 }
 
-/*
-static void
-set_gdtime (GtkCellRenderer *cell, gchar *format,  GDateTime *dtime)
-{
-  if (dtime)
-    g_object_set (cell, "text", g_date_time_format (dtime, format), NULL);
-  else
-    g_object_set (cell, "text", "", NULL);
-}
-*/
 
 void
 xc_chat_view_tview_init (XcChatView *xccv, struct atview *atv)
@@ -242,7 +246,7 @@ xc_chat_view_attach (XcChatView *xccv, struct atview *atv)
   xccv->atv = atv;
   gtk_tree_view_set_model (xccv->atv->tview, GTK_TREE_MODEL (xccv->store));
 
-  xccv->reparent_cb_id  = g_signal_connect (xccv->atv->tview, "parent-set", G_CALLBACK (cb_tview_reparented), xccv);
+//  xccv->reparent_cb_id  = g_signal_connect (xccv->atv->tview, "parent-set", G_CALLBACK (cb_tview_reparented), xccv);
   xccv->tview_map_cb_id = g_signal_connect (xccv->atv->tview, "map", G_CALLBACK (cb_mapped), xccv);
   xccv->valued_cb_id    = g_signal_connect (xccv->atv->vadj, "value-changed", G_CALLBACK (cb_valued), xccv);
   xccv->edged_cb_id     = g_signal_connect (xccv->atv->sw, "edge-reached", G_CALLBACK (cb_edged), xccv);
@@ -260,7 +264,7 @@ xc_chat_view_detach (XcChatView *xccv)
 
 // TODO: save position if not down
 
-  g_signal_handler_disconnect (xccv->atv->tview, xccv->reparent_cb_id);
+//  g_signal_handler_disconnect (xccv->atv->tview, xccv->reparent_cb_id);
   g_signal_handler_disconnect (xccv->atv->tview, xccv->tview_map_cb_id);
   g_signal_handler_disconnect (xccv->atv->vadj,  xccv->valued_cb_id);
   g_signal_handler_disconnect (xccv->atv->sw,    xccv->edged_cb_id);
@@ -762,7 +766,7 @@ xc_chat_view_copy_selection_real (XcChatView *xccv, GtkClipboard *target)
       {
         if (gd)
         {
-          dt_str = g_date_time_format (gd, xccv->dtformat);
+          dt_str = g_date_time_format (gd, klass->dtformat);
           g_string_append_printf (hold, "%s\t", dt_str);
           g_free (dt_str);
         }
@@ -989,7 +993,7 @@ xc_chat_view_run_search (XcChatView *xccv, const gchar *stext, gint flags, GErro
 				SFS_HANDLE, &h,
 				SFS_MESSAG, &m, -1);
 		if (klass->timestamps && gd)
-			dt_str = g_date_time_format (gd, xccv->dtformat);
+			dt_str = g_date_time_format (gd, klass->dtformat);
 
 		g_string_append_printf (hold, "%s %s %s", dt_str, h, m);
 
@@ -1082,7 +1086,7 @@ xc_chat_view_lastlog (XcChatView *xccv, XcChatView *target, const gchar *text, g
 					SFS_HANDLE, &h,
 					SFS_MESSAG, &m, -1);
 			if (klass->timestamps && gd)
-				dt_str = g_date_time_format (gd, xccv->dtformat);
+				dt_str = g_date_time_format (gd, klass->dtformat);
 
 			g_string_append_printf (hold, "%s %s %s", dt_str, h, m);
 
@@ -1104,6 +1108,7 @@ xc_chat_view_lastlog (XcChatView *xccv, XcChatView *target, const gchar *text, g
 	return;
 }
 
+/*
 static void
 cb_tview_reparented (GtkWidget *tview, GtkWidget *old_parent, gpointer us) {
 	XcChatView *xccv = XC_CHAT_VIEW (us);
@@ -1111,6 +1116,7 @@ cb_tview_reparented (GtkWidget *tview, GtkWidget *old_parent, gpointer us) {
 
 	xccv->atv->vadj = gtk_scrollable_get_vadjustment (GTK_SCROLLABLE (xccv->atv->tview));
 }
+*/
 
 /* few rows, big window:
     value = 0.000000

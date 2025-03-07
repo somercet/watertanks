@@ -70,10 +70,9 @@ enum tvcolumns {
 };
 
 enum storefs {
-	SFS_TMDATE = 0,
+	SFS_GDTIME = 0,
 	SFS_HANDLE,
 	SFS_MESSAG,
-	SFS_GDTIME,
 	SFS_COLNUM
 };
 
@@ -102,17 +101,16 @@ _XcChatView
   GObject	parent;
   struct atview *atv;
   GtkTreeStore	*store;
-  gulong	reparent_cb_id,
-		tview_map_cb_id,
+  gulong	tview_map_cb_id,
 		valued_cb_id,
 		edged_cb_id,
 		scrolled_cb_id,
 		released_cb_id;
+//		reparent_cb_id,
 //  gulong	upordown_cb_id;
   gdouble	upscrolled;
   guint		idlepshdwn_id;
 
-  gchar		*dtformat;
   gchar		*scrollback_filename;
 
   guint		lines_max;
@@ -143,11 +141,13 @@ struct
 _XcChatViewClass
 {
   GObjectClass	parent_class;
-  gboolean	timestamps;
-  gboolean	word_wrap;
+  gchar		*dtformat;
   GtkClipboard	*clippy_prime;
   GtkClipboard	*clippy_sec;
   GSList	*lstview;
+  gint		instance_cnt;
+  gboolean	timestamps;
+  gboolean	word_wrap;
 
 /* Virtual function overrides here */
 };
