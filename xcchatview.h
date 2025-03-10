@@ -105,9 +105,7 @@ _XcChatView
 		valued_cb_id,
 		edged_cb_id,
 		scrolled_cb_id,
-		released_cb_id;
-//		reparent_cb_id,
-//  gulong	upordown_cb_id;
+		changed_cb_id;
   gdouble	upscrolled;
   guint		idlepshdwn_id;
 
@@ -145,11 +143,11 @@ _XcChatViewClass
   GtkClipboard	*clippy_prime;
   GtkClipboard	*clippy_sec;
   GSList	*lstview;
-  gint		instance_cnt;
   gboolean	timestamps;
   gboolean	word_wrap;
 
-/* Virtual function overrides here */
+/* Signals here */
+  void (* word_click) (XcChatView *xccv);
 };
 
 
@@ -331,6 +329,7 @@ void	xc_chat_view_push_down_scrollbar (	XcChatView	*xccv );
 void xc_chat_view_tview_init (XcChatView *self, struct atview *atv);
 void xc_chat_view_attach (XcChatView *self, struct atview *atv);
 void xc_chat_view_detach (XcChatView *self);
+void xc_chat_view_set_handle_width (XcChatView *xccv, gboolean toggle, gint width);
 
 
 G_END_DECLS
