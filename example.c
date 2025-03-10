@@ -180,6 +180,8 @@ create_tabs (XcChatView *xccv, GtkWidget *stack, char *name) {
 	xc_chat_view_tview_init (xccv, atv);
 	xc_chat_view_attach (xccv, atv);
 
+	xc_chat_view_set_handle_width (xccv, TRUE, 15);
+
 	gtk_box_pack_start (searchbits[SI_LABEL], xccv->search_widget, FALSE, FALSE, 0);
 }
 

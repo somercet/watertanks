@@ -70,10 +70,9 @@ enum tvcolumns {
 };
 
 enum storefs {
-	SFS_TMDATE = 0,
+	SFS_GDTIME = 0,
 	SFS_HANDLE,
 	SFS_MESSAG,
-	SFS_GDTIME,
 	SFS_COLNUM
 };
 
@@ -102,17 +101,14 @@ _XcChatView
   GObject	parent;
   struct atview *atv;
   GtkTreeStore	*store;
-  gulong	reparent_cb_id,
-		tview_map_cb_id,
+  gulong	tview_map_cb_id,
 		valued_cb_id,
 		edged_cb_id,
 		scrolled_cb_id,
-		released_cb_id;
-//  gulong	upordown_cb_id;
-  gdouble	upscrolled;
+		changed_cb_id;
+//  gdouble	upscrolled;
   guint		idlepshdwn_id;
 
-  gchar		*dtformat;
   gchar		*scrollback_filename;
 
   guint		lines_max;
@@ -137,19 +133,22 @@ _XcChatView
   guint		timeout;
   gchar		*lorem;
   gchar		*ipsum;
+  GtkTreePath	*toprow;
 };
 
 struct
 _XcChatViewClass
 {
   GObjectClass	parent_class;
-  gboolean	timestamps;
-  gboolean	word_wrap;
+  gchar		*dtformat;
   GtkClipboard	*clippy_prime;
   GtkClipboard	*clippy_sec;
   GSList	*lstview;
+  gboolean	timestamps;
+  gboolean	word_wrap;
 
-/* Virtual function overrides here */
+/* Signals here */
+  void (* word_click) (XcChatView *xccv);
 };
 
 
@@ -331,6 +330,7 @@ void	xc_chat_view_push_down_scrollbar (	XcChatView	*xccv );
 void xc_chat_view_tview_init (XcChatView *self, struct atview *atv);
 void xc_chat_view_attach (XcChatView *self, struct atview *atv);
 void xc_chat_view_detach (XcChatView *self);
+void xc_chat_view_set_handle_width (XcChatView *xccv, gboolean toggle, gint width);
 
 
 G_END_DECLS
