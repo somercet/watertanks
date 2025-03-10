@@ -46,6 +46,7 @@ static void	cb_changed (GtkTreeSelection *treeselection, gpointer user_data);
 
 static gboolean	cb_timeout (gpointer user_data);
 
+static void	get_top_row (XcChatView *xccv);
 
 G_DEFINE_TYPE(XcChatView, xc_chat_view, G_TYPE_OBJECT)
 
@@ -88,7 +89,7 @@ xc_chat_view_init (XcChatView *xccv)
 
   xccv->marker_state = MARKER_WAS_NEVER_SET;
 
-  xccv->upscrolled = 0.0;
+//  xccv->upscrolled = 0.0;
 /*
   GdkRGBA foo = { 0.0, 0.0, 0.0, 0.0 }; // { R, G, B, A } 0.0 to 1.0 double
   g_object_set (xccv ->cell_ms, "background-rgba", &foo, NULL);
@@ -289,8 +290,11 @@ cb_changed (GtkTreeSelection *treeselection, gpointer user_data) {
 static void
 cb_edged (GtkScrolledWindow *sw, GtkPositionType pos, gpointer user_data) {
 	XcChatView *xccv = XC_CHAT_VIEW (user_data);
-	if (pos == GTK_POS_BOTTOM)
-		xccv->upscrolled = 0.0;
+
+	if (pos == GTK_POS_BOTTOM && xccv->toprow) {
+		gtk_tree_path_free (xccv->toprow);
+		xccv->toprow = NULL;
+	}
 }
 
 
@@ -303,10 +307,12 @@ cb_scrolled (GtkWidget *widget, GdkEventScroll *event, gpointer user_data) {
 	case GDK_SCROLL_SMOOTH:
 		if (gdk_event_get_scroll_deltas ((GdkEvent *)event, &delta_x, &delta_y)
 						&& delta_y < 0.0)
-			xccv->upscrolled = 1.0;
+			get_top_row (xccv);
+//			xccv->upscrolled = 1.0;
 		break;
 	case GDK_SCROLL_UP:
-		xccv->upscrolled = 1.0;
+		get_top_row (xccv);
+//		xccv->upscrolled = 1.0;
 		break;
 	default:
 		break;
@@ -317,11 +323,19 @@ cb_scrolled (GtkWidget *widget, GdkEventScroll *event, gpointer user_data) {
 static void
 cb_valued (GtkAdjustment *adj, gpointer user_data) {
 	XcChatView *xccv = XC_CHAT_VIEW (user_data);
-	if (xccv->upscrolled == 0.0 && xccv->idlepshdwn_id == 0)
+	if (! xccv->toprow && xccv->idlepshdwn_id == 0)
 		xccv->idlepshdwn_id = g_idle_add_once ((GSourceOnceFunc)
 					xc_chat_view_push_down_scrollbar, xccv);
 }
 
+static void
+get_top_row (XcChatView *xccv) {
+	if (xccv->toprow)
+		gtk_tree_path_free (xccv->toprow);
+
+	if (! gtk_tree_view_get_visible_range (xccv->atv->tview, &xccv->toprow, NULL))
+		xccv->toprow = NULL;
+}
 
 // TODO: push the difference between append and append_indent
 // out to the calling code, which can set NULL as well as xccv.
@@ -371,7 +385,7 @@ xc_chat_view_append_indent (XcChatView *xccv,
   xc_chat_view_update_line_count (xccv, 1);
   g_mutex_unlock (&xccv->mutex);
 
-  if (xccv->upscrolled == 0.0 && xccv->idlepshdwn_id == 0)
+  if (! xccv->toprow && xccv->idlepshdwn_id == 0)
     xccv->idlepshdwn_id = g_idle_add_once ((GSourceOnceFunc)
                          xc_chat_view_push_down_scrollbar, xccv);
 
@@ -419,7 +433,7 @@ xc_chat_view_append0 (	XcChatView	*xccv,
   g_mutex_unlock (&xccv->mutex);
 
 //  if (down)
-  if (xccv->upscrolled == 0.0 && xccv->idlepshdwn_id == 0)
+  if (! xccv->toprow && xccv->idlepshdwn_id == 0)
     xccv->idlepshdwn_id = g_idle_add_once ((GSourceOnceFunc)
                          xc_chat_view_push_down_scrollbar, xccv);
 }
@@ -446,7 +460,10 @@ xc_chat_view_clear (XcChatView	*xccv, gint lines) {
 	if (lines == 0 || alines >= count) {	// all
 		gtk_tree_store_clear (xccv->store);
 		xccv->lines_current = 0;
-		xccv->upscrolled = 0.0;
+		if (xccv->toprow)
+			gtk_tree_path_free (xccv->toprow);
+		xccv->toprow = NULL;
+//		xccv->upscrolled = 0.0;
 		return;
 	} else if (lines > 0)	// from top
 		gtk_tree_model_get_iter_first (GTK_TREE_MODEL (xccv->store), &iter);
@@ -496,7 +513,7 @@ xc_chat_view_set_wordwrap_real (XcChatView *xccv) {
 	g_object_set (xccv->atv->cell_ms, "wrap-width", xccv->word_wrap_width, NULL);
 	gtk_tree_view_column_queue_resize (gtk_tree_view_get_column (xccv->atv->tview, TVC_MESSAGE));
 
-	if (xccv->upscrolled == 0.0 && xccv->idlepshdwn_id == 0)
+	if (! xccv->toprow && xccv->idlepshdwn_id == 0)
 		xccv->idlepshdwn_id = g_idle_add_once ((GSourceOnceFunc)
 				xc_chat_view_push_down_scrollbar, xccv);
 }
