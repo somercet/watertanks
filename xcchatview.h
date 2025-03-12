@@ -106,7 +106,6 @@ _XcChatView
 		edged_cb_id,
 		scrolled_cb_id,
 		changed_cb_id;
-//  gdouble	upscrolled;
   guint		idlepshdwn_id;
 
   gchar		*scrollback_filename;
@@ -114,6 +113,9 @@ _XcChatView
   guint		lines_max;
   guint		lines_current;
   gint		word_wrap_width;
+
+  gboolean	isdown;
+  GtkTreePath	*toprow;
 
   gchar	*search_text;
   GList	*search_paths;
@@ -133,7 +135,6 @@ _XcChatView
   guint		timeout;
   gchar		*lorem;
   gchar		*ipsum;
-  GtkTreePath	*toprow;
 };
 
 struct

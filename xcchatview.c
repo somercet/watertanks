@@ -46,7 +46,7 @@ static void	cb_changed (GtkTreeSelection *treeselection, gpointer user_data);
 
 static gboolean	cb_timeout (gpointer user_data);
 
-static void	get_top_row (XcChatView *xccv);
+static void	xc_chat_view_get_top_row (XcChatView *xccv);
 
 G_DEFINE_TYPE(XcChatView, xc_chat_view, G_TYPE_OBJECT)
 
@@ -77,6 +77,7 @@ xc_chat_view_init (XcChatView *xccv)
 
   xccv->lines_max = 1000;
   xccv->lines_current = 0;
+  xccv->isdown = TRUE;
 
   g_mutex_init (&xccv->mutex);
 
@@ -88,8 +89,6 @@ xc_chat_view_init (XcChatView *xccv)
   xc_chat_view_update_search_widget (xccv);
 
   xccv->marker_state = MARKER_WAS_NEVER_SET;
-
-//  xccv->upscrolled = 0.0;
 /*
   GdkRGBA foo = { 0.0, 0.0, 0.0, 0.0 }; // { R, G, B, A } 0.0 to 1.0 double
   g_object_set (xccv ->cell_ms, "background-rgba", &foo, NULL);
@@ -246,8 +245,21 @@ void
 xc_chat_view_attach (XcChatView *xccv, struct atview *atv)
 {
   g_return_if_fail (XC_IS_CHAT_VIEW (xccv) && atv != NULL);
+  GtkTreeIter iter;
   xccv->atv = atv;
   gtk_tree_view_set_model (xccv->atv->tview, GTK_TREE_MODEL (xccv->store));
+
+  if (xccv->isdown)
+    xc_chat_view_push_down_scrollbar (xccv);
+  else if (xccv->toprow) {
+    if (gtk_tree_model_get_iter (GTK_TREE_MODEL (xccv->store), &iter, xccv->toprow))
+      gtk_tree_view_scroll_to_cell (xccv->atv->tview, xccv->toprow, NULL, FALSE, 0.0, 0.0);
+    else {
+      gtk_adjustment_set_value (xccv->atv->vadj, 0);
+      gtk_tree_path_free (xccv->toprow);
+      xccv->toprow = NULL;
+    }
+  }
 
   xccv->tview_map_cb_id = g_signal_connect (xccv->atv->tview, "map", G_CALLBACK (cb_mapped), xccv);
   xccv->valued_cb_id    = g_signal_connect (xccv->atv->vadj, "value-changed", G_CALLBACK (cb_valued), xccv);
@@ -262,18 +274,16 @@ xc_chat_view_detach (XcChatView *xccv)
 {
   g_return_if_fail (XC_IS_CHAT_VIEW (xccv));
 
-// TODO: save position if not down
+  if (! xccv->isdown)
+    xc_chat_view_get_top_row (xccv);
 
-//  g_signal_handler_disconnect (xccv->atv->tview, xccv->reparent_cb_id);
-  g_signal_handler_disconnect (xccv->atv->tview, xccv->tview_map_cb_id);
-  g_signal_handler_disconnect (xccv->atv->vadj,  xccv->valued_cb_id);
-  g_signal_handler_disconnect (xccv->atv->sw,    xccv->edged_cb_id);
-  g_signal_handler_disconnect (xccv->atv->tview, xccv->scrolled_cb_id);
-//  g_signal_handler_disconnect (xccv->atv->tview, xccv->released_cb_id);
   g_signal_handler_disconnect (xccv->atv->select, xccv->changed_cb_id);
-//  g_signal_handler_disconnect (xccv->atv->tview, xccv->upordown_cb_id);
+  g_signal_handler_disconnect (xccv->atv->tview, xccv->scrolled_cb_id);
+  g_signal_handler_disconnect (xccv->atv->sw,    xccv->edged_cb_id);
+  g_signal_handler_disconnect (xccv->atv->vadj,  xccv->valued_cb_id);
+  g_signal_handler_disconnect (xccv->atv->tview, xccv->tview_map_cb_id);
 
-  gtk_tree_view_set_model (xccv->atv->tview, NULL);
+//  gtk_tree_view_set_model (xccv->atv->tview, NULL);
   xccv->atv = NULL;
 }
 
@@ -291,10 +301,8 @@ static void
 cb_edged (GtkScrolledWindow *sw, GtkPositionType pos, gpointer user_data) {
 	XcChatView *xccv = XC_CHAT_VIEW (user_data);
 
-	if (pos == GTK_POS_BOTTOM && xccv->toprow) {
-		gtk_tree_path_free (xccv->toprow);
-		xccv->toprow = NULL;
-	}
+	if (pos == GTK_POS_BOTTOM)
+		xccv->isdown = TRUE;
 }
 
 
@@ -307,12 +315,10 @@ cb_scrolled (GtkWidget *widget, GdkEventScroll *event, gpointer user_data) {
 	case GDK_SCROLL_SMOOTH:
 		if (gdk_event_get_scroll_deltas ((GdkEvent *)event, &delta_x, &delta_y)
 						&& delta_y < 0.0)
-			get_top_row (xccv);
-//			xccv->upscrolled = 1.0;
+			xccv->isdown = FALSE;
 		break;
 	case GDK_SCROLL_UP:
-		get_top_row (xccv);
-//		xccv->upscrolled = 1.0;
+		xccv->isdown = FALSE;
 		break;
 	default:
 		break;
@@ -323,13 +329,13 @@ cb_scrolled (GtkWidget *widget, GdkEventScroll *event, gpointer user_data) {
 static void
 cb_valued (GtkAdjustment *adj, gpointer user_data) {
 	XcChatView *xccv = XC_CHAT_VIEW (user_data);
-	if (! xccv->toprow && xccv->idlepshdwn_id == 0)
+	if (xccv->isdown && xccv->idlepshdwn_id == 0)
 		xccv->idlepshdwn_id = g_idle_add_once ((GSourceOnceFunc)
 					xc_chat_view_push_down_scrollbar, xccv);
 }
 
 static void
-get_top_row (XcChatView *xccv) {
+xc_chat_view_get_top_row (XcChatView *xccv) {
 	if (xccv->toprow)
 		gtk_tree_path_free (xccv->toprow);
 
@@ -385,7 +391,7 @@ xc_chat_view_append_indent (XcChatView *xccv,
   xc_chat_view_update_line_count (xccv, 1);
   g_mutex_unlock (&xccv->mutex);
 
-  if (! xccv->toprow && xccv->idlepshdwn_id == 0)
+  if (xccv->isdown && xccv->idlepshdwn_id == 0)
     xccv->idlepshdwn_id = g_idle_add_once ((GSourceOnceFunc)
                          xc_chat_view_push_down_scrollbar, xccv);
 
@@ -417,9 +423,6 @@ xc_chat_view_append0 (	XcChatView	*xccv,
 			gchar		*handle,
 			gchar		*message ) {
   GtkTreeIter	iter;
-//  gboolean	down;
-
-//  down = is_scrolled_down (xccv);
 
   g_mutex_lock (&xccv->mutex);
   gtk_tree_store_append (xccv->store, &iter, NULL);
@@ -432,8 +435,7 @@ xc_chat_view_append0 (	XcChatView	*xccv,
   xc_chat_view_update_line_count (xccv, 1);
   g_mutex_unlock (&xccv->mutex);
 
-//  if (down)
-  if (! xccv->toprow && xccv->idlepshdwn_id == 0)
+  if (xccv->isdown && xccv->idlepshdwn_id == 0)
     xccv->idlepshdwn_id = g_idle_add_once ((GSourceOnceFunc)
                          xc_chat_view_push_down_scrollbar, xccv);
 }
@@ -460,10 +462,11 @@ xc_chat_view_clear (XcChatView	*xccv, gint lines) {
 	if (lines == 0 || alines >= count) {	// all
 		gtk_tree_store_clear (xccv->store);
 		xccv->lines_current = 0;
-		if (xccv->toprow)
+		if (xccv->toprow) {
 			gtk_tree_path_free (xccv->toprow);
-		xccv->toprow = NULL;
-//		xccv->upscrolled = 0.0;
+			xccv->toprow = NULL;
+		}
+		xccv->isdown = TRUE;
 		return;
 	} else if (lines > 0)	// from top
 		gtk_tree_model_get_iter_first (GTK_TREE_MODEL (xccv->store), &iter);
@@ -513,7 +516,7 @@ xc_chat_view_set_wordwrap_real (XcChatView *xccv) {
 	g_object_set (xccv->atv->cell_ms, "wrap-width", xccv->word_wrap_width, NULL);
 	gtk_tree_view_column_queue_resize (gtk_tree_view_get_column (xccv->atv->tview, TVC_MESSAGE));
 
-	if (! xccv->toprow && xccv->idlepshdwn_id == 0)
+	if (xccv->isdown && xccv->idlepshdwn_id == 0)
 		xccv->idlepshdwn_id = g_idle_add_once ((GSourceOnceFunc)
 				xc_chat_view_push_down_scrollbar, xccv);
 }
