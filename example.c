@@ -2,7 +2,7 @@
 #include <gtk/gtk.h>
 #endif
 // #include <glib/gprintf.h>
-#include <glib/gstdio.h>
+// #include <glib/gstdio.h>
 #include <fcntl.h>
 #ifndef _xc_search_flags_h_
 #include "xc_search_flags.h"
@@ -15,10 +15,11 @@ static GList *
 stakk = NULL;
 
 struct
-Xccvbit {
+tabbit {
+//	XcChatView *xccv;
+//	GtkWidget *gen;
 	gpointer xccv;
-	gpointer child;
-	gpointer atv;
+	gpointer gen;
 };
 
 static XcChatView *
@@ -71,18 +72,18 @@ static void cb_state (GSimpleAction *action,
 }
 */
 
-static XcChatView *
-get_active_xccv (GtkStack *stack) {
-	struct Xccvbit *tab;
+static tabbit *
+get_active_tab (GtkStack *stack) {
+	struct tabbit *tab;
 	GtkWidget *current = gtk_stack_get_visible_child (stack);
 
 	GList *l;
 	for (l = stakk; l != NULL; l = l->next) {
 		tab = l->data;
-		if (current == tab->child)
+		if ((tab->xccv && tab->atv) || current == tab->gen)
 			break;
 	}
-	return tab->xccv;
+	return tab;
 }
 
 
@@ -100,8 +101,10 @@ example_destroy (GtkWidget *win, gpointer app) {
 	GList *l;
 	for (l = stakk; l != NULL; l = l->next) {
 		tab = l->data;
-		gtk_widget_destroy (tab->child);
-		g_object_unref (tab->xccv);
+		if (tab->xccv)
+			g_object_unref (tab->xccv);
+		if (tab->gen)
+			gtk_widget_destroy (tab->gen);
 	}
 
 	g_application_quit (G_APPLICATION (app));
@@ -114,26 +117,47 @@ cb_quit (GSimpleAction *simple, GVariant *parameter, gpointer win) {
 	example_destroy (win, app);
 }
 
+// if (gen == NULL) xccv active + attached else gen active & xccv attached
+static struct tabbit *
+get_actives (GtkStack *stack) {
+	struct tabbit *tabold = NULL, *tab = NULL,
+		*answer = g_new0 (struct tabbit, 1);
+	GtkWidget *current = gtk_stack_get_visible_child (stack);
+	short left = 2;
+
+	for (GList *l = stakk; l != NULL; l = l->next) {
+		tab = l->data;
+		if (tab->xccv && tab->xccv->atv) {
+			answer->xccv = tab->xccv;
+			left--;
+		}
+		else if (current == tab->gen) {
+			answer->gen = tab->gen;
+			left--;
+		}
+		if (! left)
+			break;
+	}
+	return answer;
+}
+
 
 static void
 chpg (GtkStack *stack, gboolean up) {
-	XcChatView *xccvold;//, *xccvnew;
-	struct Xccvbit *tab;
+	struct tabbit *tabold = NULL, *tab = NULL;
+	XcChatView *xccvold = NULL, xccv = NULL;;
 	gboolean got = FALSE,
 		sb_visible = gtk_search_bar_get_search_mode (searchbits[SI_BAR]);
 	GtkWidget *current = gtk_stack_get_visible_child (stack);
 
 	if (sb_visible)
-		xccvold = get_active_xccv (GTK_STACK (stack));
+		tabold = get_actives (stack);
 
-	GList *l;
-	for (l = stakk; l != NULL; ) {
+	for (GList *l = stakk; l != NULL; ) {
 		tab = l->data;
-		if (got) {
-			gtk_stack_set_visible_child (stack, tab->child);
+		if (got)
 			break;
-		}
-		if (current == tab->child) {
+		if ((tab->xccv && tab->xccv->atv) || (current == tab->gen)) {
 			got = TRUE;
 			if (up) {
 				l = l->prev;
@@ -143,10 +167,33 @@ chpg (GtkStack *stack, gboolean up) {
 		l = l->next;
 	}
 
-	if (sb_visible && (xccvold != tab->xccv)) {
+	switch_tabs (tabold, tab);
+
+	if (sb_visible && (tabold->xccv != tab->xccv)) {
 		gtk_widget_show (XC_CHAT_VIEW (tab->xccv)->search_widget);
-		gtk_widget_hide (xccvold->search_widget);
+		gtk_widget_hide (tabold->xccv->search_widget);
 	}
+}
+
+/*
+xccv null
+	gen?  switch
+	xccv? detach/attach
+xccv gen
+	gen?  switch
+	xccv? old_gen?  switch ; new xccv? detach attach
+*/
+void switch_tabs (struct tabbit *old, struct tabbit *new) {
+	if (new->gen) {
+		gtk_stack_set_visible_child (stack, new->gen);
+		return;
+	}
+	if (old->xccv != new->xccv) {
+		xc_chat_view_detach (old->xccv);
+		xc_chat_view_attach (new->xccv, atv);
+	}
+	if (old->gen)
+		gtk_stack_set_visible_child_name (stack, "xccv");
 }
 
 
@@ -175,7 +222,7 @@ create_tabs (XcChatView *xccv, GtkWidget *stack, char *name) {
 	newtab->xccv = xccv;
 	newtab->child = sw;
 	newtab->atv = atv;
-	stakk = g_list_append (stakk, newtab);
+	stakk = g_list_prepend (stakk, newtab);
 
 	xc_chat_view_tview_init (xccv, atv);
 	xc_chat_view_attach (xccv, atv);
