@@ -247,12 +247,20 @@ xc_chat_view_attach (XcChatView *xccv, struct atview *atv)
   g_return_if_fail (XC_IS_CHAT_VIEW (xccv) && atv);
   GtkTreeIter iter;
   xccv->atv = atv;
-  gtk_tree_view_set_model (xccv->atv->tview, GTK_TREE_MODEL (xccv->store));
 
-  if (xccv->isdown && xccv->idlepshdwn_id == 0)
-//    xccv->idlepshdwn_id = g_idle_add_once ((GSourceOnceFunc)
-//					xc_chat_view_push_down_scrollbar, xccv);
-					xc_chat_view_push_down_scrollbar (xccv);
+  xccv->tview_map_cb_id = g_signal_connect (xccv->atv->tview, "map", G_CALLBACK (cb_mapped), xccv);
+  xccv->valued_cb_id    = g_signal_connect (xccv->atv->vadj, "value-changed", G_CALLBACK (cb_valued), xccv);
+  xccv->edged_cb_id     = g_signal_connect (xccv->atv->sw, "edge-reached", G_CALLBACK (cb_edged), xccv);
+  xccv->scrolled_cb_id  = g_signal_connect (GTK_WIDGET (xccv->atv->tview), "scroll-event", G_CALLBACK (cb_scrolled), xccv);
+  xccv->changed_cb_id   = g_signal_connect (xccv->atv->select, "changed", G_CALLBACK (cb_changed), xccv);
+
+  gtk_widget_freeze_child_notify (GTK_WIDGET (xccv->atv->tview));
+  gtk_tree_view_set_model (xccv->atv->tview, GTK_TREE_MODEL (xccv->store));
+  gtk_widget_thaw_child_notify (GTK_WIDGET (xccv->atv->tview));
+
+  if (xccv->isdown && ! xccv->idlepshdwn_id)
+    xccv->idlepshdwn_id = g_idle_add_once ((GSourceOnceFunc)
+					xc_chat_view_push_down_scrollbar, xccv);
   else if (xccv->toprow) {
     if (gtk_tree_model_get_iter (GTK_TREE_MODEL (xccv->store), &iter, xccv->toprow))
       gtk_tree_view_scroll_to_cell (xccv->atv->tview, xccv->toprow, NULL, FALSE, 0.0, 0.0);
@@ -262,12 +270,6 @@ xc_chat_view_attach (XcChatView *xccv, struct atview *atv)
       xccv->toprow = NULL;
     }
   }
-
-  xccv->tview_map_cb_id = g_signal_connect (xccv->atv->tview, "map", G_CALLBACK (cb_mapped), xccv);
-  xccv->valued_cb_id    = g_signal_connect (xccv->atv->vadj, "value-changed", G_CALLBACK (cb_valued), xccv);
-  xccv->edged_cb_id     = g_signal_connect (xccv->atv->sw, "edge-reached", G_CALLBACK (cb_edged), xccv);
-  xccv->scrolled_cb_id  = g_signal_connect (GTK_WIDGET (xccv->atv->tview), "scroll-event", G_CALLBACK (cb_scrolled), xccv);
-  xccv->changed_cb_id  = g_signal_connect (xccv->atv->select, "changed", G_CALLBACK (cb_changed), xccv);
 }
 
 
@@ -279,10 +281,10 @@ xc_chat_view_detach (XcChatView *xccv)
   if (! xccv->isdown)
     xc_chat_view_get_top_row (xccv);
 
+  g_signal_handler_disconnect (xccv->atv->vadj,  xccv->valued_cb_id);
+  g_signal_handler_disconnect (xccv->atv->sw,    xccv->edged_cb_id);
   g_signal_handler_disconnect (xccv->atv->select, xccv->changed_cb_id);
   g_signal_handler_disconnect (xccv->atv->tview, xccv->scrolled_cb_id);
-  g_signal_handler_disconnect (xccv->atv->sw,    xccv->edged_cb_id);
-  g_signal_handler_disconnect (xccv->atv->vadj,  xccv->valued_cb_id);
   g_signal_handler_disconnect (xccv->atv->tview, xccv->tview_map_cb_id);
 
 //  gtk_tree_view_set_model (xccv->atv->tview, NULL);
