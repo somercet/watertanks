@@ -244,13 +244,15 @@ xc_chat_view_tview_init (XcChatView *xccv, struct atview *atv)
 void
 xc_chat_view_attach (XcChatView *xccv, struct atview *atv)
 {
-  g_return_if_fail (XC_IS_CHAT_VIEW (xccv) && atv != NULL);
+  g_return_if_fail (XC_IS_CHAT_VIEW (xccv) && atv);
   GtkTreeIter iter;
   xccv->atv = atv;
   gtk_tree_view_set_model (xccv->atv->tview, GTK_TREE_MODEL (xccv->store));
 
-  if (xccv->isdown)
-    xc_chat_view_push_down_scrollbar (xccv);
+  if (xccv->isdown && xccv->idlepshdwn_id == 0)
+//    xccv->idlepshdwn_id = g_idle_add_once ((GSourceOnceFunc)
+//					xc_chat_view_push_down_scrollbar, xccv);
+					xc_chat_view_push_down_scrollbar (xccv);
   else if (xccv->toprow) {
     if (gtk_tree_model_get_iter (GTK_TREE_MODEL (xccv->store), &iter, xccv->toprow))
       gtk_tree_view_scroll_to_cell (xccv->atv->tview, xccv->toprow, NULL, FALSE, 0.0, 0.0);
@@ -435,7 +437,7 @@ xc_chat_view_append0 (	XcChatView	*xccv,
   xc_chat_view_update_line_count (xccv, 1);
   g_mutex_unlock (&xccv->mutex);
 
-  if (xccv->isdown && xccv->idlepshdwn_id == 0)
+  if (xccv->atv && xccv->isdown && xccv->idlepshdwn_id == 0)
     xccv->idlepshdwn_id = g_idle_add_once ((GSourceOnceFunc)
                          xc_chat_view_push_down_scrollbar, xccv);
 }
