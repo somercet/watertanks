@@ -15,11 +15,15 @@ static GList *
 stakk = NULL;
 
 struct
-Xccvbit {
-	gpointer xccv;
-	gpointer child;
-	gpointer atv;
+tabbit {
+	XcChatView *xccv;
+	GtkWidget *gen;
+//	gpointer xccv;
+//	gpointer gen;
 };
+
+static struct atview
+Atv;
 
 static XcChatView *
 Lastlog = NULL;
@@ -69,39 +73,70 @@ static void cb_state (GSimpleAction *action,
 	gpointer app) {
 	g_simple_action_set_state (action, state);
 }
-*/
 
-static XcChatView *
-get_active_xccv (GtkStack *stack) {
-	struct Xccvbit *tab;
+static struct tabbit *
+get_active_tab (GtkStack *stack) {
+	struct tabbit *tab;
 	GtkWidget *current = gtk_stack_get_visible_child (stack);
 
 	GList *l;
 	for (l = stakk; l != NULL; l = l->next) {
 		tab = l->data;
-		if (current == tab->child)
+		if ((tab->xccv && tab->xccv->atv) || current == tab->gen)
 			break;
 	}
-	return tab->xccv;
+	return tab;
+}
+*/
+
+// if (gen == NULL) xccv active + attached else gen active & xccv attached
+static struct tabbit *
+get_actives (GtkStack *stack) {
+	struct tabbit *tab = NULL, *answer = g_new0 (struct tabbit, 1);
+	GtkWidget *current = gtk_stack_get_visible_child (stack);
+	short left = 2;
+
+//	for (GList *l = stakk; l && left; l = l->next) {
+	for (GList *l = stakk; l != NULL; l = l->next) {
+		tab = l->data;
+		if (tab->xccv && tab->xccv->atv) {
+			answer->xccv = tab->xccv;
+			left--;
+		}
+		else if (current == tab->gen) {
+			answer->gen = tab->gen;
+			left--;
+		}
+		if (! left)
+			break;
+	}
+	return answer;
 }
 
 
 static void
 cb_copy (GSimpleAction *simple, GVariant *parameter, gpointer stck) {
-	XcChatView *xccv = get_active_xccv (GTK_STACK (stck));
-	xc_chat_view_copy_selection (xccv);
+	struct tabbit *tab = get_actives (GTK_STACK (stck));
+
+	if (tab->gen)
+		return;
+	if (tab->xccv)
+		xc_chat_view_copy_selection (tab->xccv);
+	g_free (tab);
 }
 
 
 static void
 example_destroy (GtkWidget *win, gpointer app) {
-	struct Xccvbit *tab;
+	struct tabbit *tab;
 
 	GList *l;
 	for (l = stakk; l != NULL; l = l->next) {
 		tab = l->data;
-		gtk_widget_destroy (tab->child);
-		g_object_unref (tab->xccv);
+		if (tab->xccv)
+			g_object_unref (tab->xccv);
+		if (tab->gen)
+			gtk_widget_destroy (tab->gen);
 	}
 
 	g_application_quit (G_APPLICATION (app));
@@ -114,26 +149,43 @@ cb_quit (GSimpleAction *simple, GVariant *parameter, gpointer win) {
 	example_destroy (win, app);
 }
 
+/*
+xccv null
+	gen?  switch
+	xccv? detach/attach
+xccv gen
+	gen?  switch
+	xccv? old_gen?  switch ; new xccv? detach attach
+*/
+void switch_tabs (GtkStack *stack, struct tabbit *old, struct tabbit *new) {
+	if (new->gen) {
+		gtk_stack_set_visible_child (stack, new->gen);
+		return;
+	}
+	if (old->xccv != new->xccv) {
+		xc_chat_view_detach (old->xccv);
+		xc_chat_view_attach (new->xccv, &Atv);
+	}
+	if (old->gen)
+		gtk_stack_set_visible_child_name (stack, "xccv");
+}
+
 
 static void
 chpg (GtkStack *stack, gboolean up) {
-	XcChatView *xccvold;//, *xccvnew;
-	struct Xccvbit *tab;
+	struct tabbit *tabold = NULL, *tab = NULL;
 	gboolean got = FALSE,
 		sb_visible = gtk_search_bar_get_search_mode (searchbits[SI_BAR]);
 	GtkWidget *current = gtk_stack_get_visible_child (stack);
 
-	if (sb_visible)
-		xccvold = get_active_xccv (GTK_STACK (stack));
+//	if (sb_visible)
+	tabold = get_actives (stack);
 
-	GList *l;
-	for (l = stakk; l != NULL; ) {
+	for (GList *l = stakk; l != NULL; ) {
 		tab = l->data;
-		if (got) {
-			gtk_stack_set_visible_child (stack, tab->child);
+		if (got)
 			break;
-		}
-		if (current == tab->child) {
+		if ((tab->xccv && tab->xccv->atv) || (current == tab->gen)) {
 			got = TRUE;
 			if (up) {
 				l = l->prev;
@@ -143,10 +195,13 @@ chpg (GtkStack *stack, gboolean up) {
 		l = l->next;
 	}
 
-	if (sb_visible && (xccvold != tab->xccv)) {
+	switch_tabs (stack, tabold, tab);
+
+	if (sb_visible && (tabold->xccv != tab->xccv)) {
 		gtk_widget_show (XC_CHAT_VIEW (tab->xccv)->search_widget);
-		gtk_widget_hide (xccvold->search_widget);
+		gtk_widget_hide (tabold->xccv->search_widget);
 	}
+	g_free (tabold);
 }
 
 
@@ -161,26 +216,22 @@ cb_pgdn (GSimpleAction *simple, GVariant *parameter, gpointer stck) {
 
 
 static void
-create_tabs (XcChatView *xccv, GtkWidget *stack, char *name) {
-	GtkWidget *sw = gtk_scrolled_window_new (NULL, NULL);
-	gtk_stack_add_titled (GTK_STACK (stack), sw, name, name);
+init_atv (GtkWidget *stack) {
 	GtkWidget *tview = gtk_tree_view_new ();
+	GtkWidget *sw = gtk_scrolled_window_new (NULL, NULL);
 	gtk_container_add (GTK_CONTAINER (sw), tview);
+	gtk_stack_add_named (GTK_STACK (stack), sw, "xccv");
 
-	struct atview *atv = g_new0 (struct atview, 1);
-	atv->tview = GTK_TREE_VIEW (tview);
-	atv->sw = GTK_SCROLLED_WINDOW (sw);
+	Atv.tview = GTK_TREE_VIEW (tview);
+	Atv.sw = GTK_SCROLLED_WINDOW (sw);
+}
 
-	struct Xccvbit *newtab = g_new0 (struct Xccvbit, 1);
+
+static void
+create_tabs (XcChatView *xccv, GtkWidget *stack) {
+	struct tabbit *newtab = g_new0 (struct tabbit, 1);
 	newtab->xccv = xccv;
-	newtab->child = sw;
-	newtab->atv = atv;
-	stakk = g_list_append (stakk, newtab);
-
-	xc_chat_view_tview_init (xccv, atv);
-	xc_chat_view_attach (xccv, atv);
-
-	xc_chat_view_set_handle_width (xccv, TRUE, 15);
+	stakk = g_list_prepend (stakk, newtab);
 
 	gtk_box_pack_start (searchbits[SI_LABEL], xccv->search_widget, FALSE, FALSE, 0);
 }
@@ -188,35 +239,41 @@ create_tabs (XcChatView *xccv, GtkWidget *stack, char *name) {
 
 static void
 cb_find (GSimpleAction *simple, GVariant *parameter, gpointer stack) {
-	gboolean visible = ! gtk_search_bar_get_search_mode (searchbits[SI_BAR]);
+	gboolean visible = gtk_search_bar_get_search_mode (searchbits[SI_BAR]);
+	struct tabbit *tab = get_actives (stack);
 
-	gtk_search_bar_set_search_mode (searchbits[SI_BAR], visible);
+	if (tab->gen && ! visible)
+		return;
+	gtk_search_bar_set_search_mode (searchbits[SI_BAR], ! visible);
 
-	XcChatView *xccv = get_active_xccv (GTK_STACK (stack));
-	if (visible)
-		gtk_widget_show (xccv->search_widget);
+	if (! tab->gen && ! visible)
+		gtk_widget_show (tab->xccv->search_widget);
 	else
-		gtk_widget_hide (xccv->search_widget);
+		gtk_widget_hide (tab->xccv->search_widget);
 // gtk_entry_set_icon_from_icon_name (searchbits[SI_ENTRY], GTK_ENTRY_ICON_SECONDARY, "dialog-error");
+	g_free (tab);
 }
 
 static void
-run_search (GtkSearchEntry *entry, gpointer stack) {
+run_search (GtkSearchEntry *entry, gpointer stck) {
 	GError *err = NULL;
+	GtkStack *stack = stck;
+	struct tabbit *tab = get_actives (stack);
 
-	XcChatView *xccv = get_active_xccv (GTK_STACK (stack));
-	xc_chat_view_run_search (xccv, gtk_entry_get_text (GTK_ENTRY (entry)), search_flags, &err);
+	xc_chat_view_run_search (tab->xccv, gtk_entry_get_text (GTK_ENTRY (entry)), search_flags, &err);
 
 	if (err) {
 		g_print ("Search error: %s\n", err->message);
 		g_error_free (err);
 	}
+	g_free (tab);
 }
 
 static void
 next_search (gpointer *stack, gboolean direction) {
-	XcChatView *xccv = get_active_xccv (GTK_STACK (stack));
-	xc_chat_view_next_search (xccv, direction);
+	struct tabbit *tab = get_actives (GTK_STACK (stack));
+	xc_chat_view_next_search (tab->xccv, direction);
+	g_free (tab);
 }
 
 static void
@@ -269,15 +326,17 @@ cb_toggled (GtkToggleButton *togged, gpointer stack) {
 }
 
 static void
-cb_lastlog (GtkButton *togged, gpointer stack) {
-	XcChatView *xccv = get_active_xccv (GTK_STACK (stack));
+cb_lastlog (GtkButton *togged, gpointer stck) {
+	GtkStack *stack = GTK_STACK (stck);
+	struct tabbit *tab = get_actives (stack);
 
 	if (Lastlog == NULL) {
 		Lastlog = xc_chat_view_new ();
-		create_tabs (Lastlog, GTK_WIDGET (stack), "Lastlog");
-		gtk_widget_show_all (stack);
+		create_tabs (Lastlog, stck);
+		gtk_widget_show_all (stck);
 	}
-	xc_chat_view_lastlog (xccv, Lastlog, gtk_entry_get_text (searchbits[SI_ENTRY]), search_flags);
+	xc_chat_view_lastlog (tab->xccv, Lastlog, gtk_entry_get_text (searchbits[SI_ENTRY]), search_flags);
+	g_free (tab);
 }
 
 static void
@@ -323,65 +382,69 @@ create_searchbar (GtkWidget *bar, GtkWidget *stack) {
 
 static void
 cb_time (GSimpleAction *simple, GVariant *parameter, gpointer stack) {
-	struct Xccvbit *tab;
+	struct tabbit *tab = get_actives (stack);
+	if (tab->gen)
+		return;
 
 	GVariant *state = g_action_get_state (G_ACTION (simple));
 	gboolean flag = g_variant_get_boolean (state);
 	g_variant_unref (state);
 
 	g_simple_action_set_state (simple, g_variant_new_boolean (!flag));
-
-	GList *l;
-	for (l = stakk; l != NULL; l = l->next) {
-		tab = l->data;
-		xc_chat_view_set_time_stamp (tab->xccv, !flag);
-	}
+	xc_chat_view_set_time_stamp (tab->xccv, !flag);
+	g_free (tab);
 }
 
 static void
 cb_save (GSimpleAction *simple, GVariant *parameter, gpointer stack) {
-	XcChatView *xccv = get_active_xccv (GTK_STACK (stack));
 	gchar *file = "ssssssssss";
+	struct tabbit *tab = get_actives (stack);
+	if (tab->gen)
+		return;
 
 	gint fh = g_open (file, O_TRUNC | O_WRONLY | O_CREAT, 0600);
 	if (fh != -1) {
-		xc_chat_view_save (xccv, fh);
+		xc_chat_view_save (tab->xccv, fh);
 		close (fh);
 	}
+	g_free (tab);
 }
 
 static void
 cb_wrap (GSimpleAction *simple, GVariant *parameter, gpointer stack) {
-	struct Xccvbit *tab;
+	struct tabbit *tab = get_actives (stack);
+	if (tab->gen)
+		return;
 
 	GVariant *state = g_action_get_state (G_ACTION (simple));
 	gboolean flag = g_variant_get_boolean (state);
 	g_variant_unref (state);
-
 	g_simple_action_set_state (simple, g_variant_new_boolean (!flag));
 
-	GList *l;
-	for (l = stakk; l != NULL; l = l->next) {
-		tab = l->data;
-		xc_chat_view_set_wordwrap (tab->xccv, !flag);
-	}
+	xc_chat_view_set_wordwrap (tab->xccv, !flag);
+	g_free (tab);
 }
 
 static void
 cb_clos (GSimpleAction *simple, GVariant *parameter, gpointer stack) {
-	struct Xccvbit *tab;
+	struct tabbit *tab = NULL;
 	GtkWidget *current = gtk_stack_get_visible_child (stack);
+
+	if (tab->gen) {
+		return;
+	}
 
 	GList *l;
 	for (l = stakk; l != NULL; l = l->next) {
 		tab = l->data;
-		if (current == tab->child) {
-			g_object_unref (tab->xccv);
-			gtk_widget_destroy (tab->child);
+		if (current == tab->gen) { // TODO: fix this to phup/dn to adj xccv/stack
+			gtk_widget_destroy (tab->gen);
 			g_free (l->data);
 			stakk = g_list_delete_link (stakk, l);
 		}
 	}
+			xc_chat_view_detach (tab->xccv);
+			g_object_unref (tab->xccv);
 }
 
 /* static void
@@ -423,6 +486,8 @@ example_activated (GtkApplication *app, gpointer user_data) {
 	g_object_unref (smenu);
 
 	GtkWidget *stack = gtk_stack_new ();
+	init_atv (stack);
+
 	GtkWidget *sbar = gtk_search_bar_new ();
 	create_searchbar (sbar, stack);
 	gtk_box_pack_start (GTK_BOX (mbox), stack,  TRUE,  TRUE, 0);
@@ -447,31 +512,31 @@ example_activated (GtkApplication *app, gpointer user_data) {
 	g_action_map_add_action_entries (G_ACTION_MAP (app), wacts, G_N_ELEMENTS (wacts), win);
 	g_action_map_add_action_entries (G_ACTION_MAP (app), sacts, G_N_ELEMENTS (sacts), stack);
 
-	GtkCssProvider *cssProvider = gtk_css_provider_new();
-	gtk_css_provider_load_from_path(cssProvider, "theme.css", NULL);
-	gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
-		GTK_STYLE_PROVIDER(cssProvider), GTK_STYLE_PROVIDER_PRIORITY_USER);
+	GtkCssProvider *cssProvider = gtk_css_provider_new ();
+	gtk_css_provider_load_from_path (cssProvider, "theme.css", NULL);
+	gtk_style_context_add_provider_for_screen (gdk_screen_get_default (),
+		GTK_STYLE_PROVIDER (cssProvider), GTK_STYLE_PROVIDER_PRIORITY_USER);
 
 	gtk_widget_show_all (win);
 
-	XcChatView *xccv1 = (xc_chat_view_new ());
-	XcChatView *xccv2 = (xc_chat_view_new ());
-	XcChatView *xccv3 = (xc_chat_view_new ());
-	create_tabs (xccv1, stack, "One");
-	create_tabs (xccv2, stack, "Two");
-	create_tabs (xccv3, stack, "Three");
+	XcChatView *xccv1 = xc_chat_view_new ();
+	create_tabs (xccv1, stack);
+	xc_chat_view_tview_init (xccv1, &Atv);
+	xc_chat_view_attach (xccv1, &Atv);
+	xc_chat_view_set_handle_width (xccv1, TRUE, 15);
+
+	XcChatView *xccv2 = xc_chat_view_new ();
+	create_tabs (xccv2, stack);
+	XcChatView *xccv3 = xc_chat_view_new ();
+	create_tabs (xccv3, stack);
+
 	gtk_widget_show_all (stack);
 /*
-	xc_chat_view_set_scrollback_file (xccv3, "rrr");
 	xc_chat_view_set_scrollback_file (xccv3, "foo/rrr");
 	xc_chat_view_set_background (xccv1, "/home/peter/Pictures/tile_5020.png");
 	xc_chat_view_set_font (xccv1, "Arimo 12");
 */
 	xc_chat_view_set_scrollback_file (xccv1, "text1");
-	xc_chat_view_append_indent (xccv1,
-		(guchar *) "bobvila", 7,
-		(guchar *) "h jdsfh kjdhks hjfkhj shdkdjh s\n", 32,
-		1609556312);
 	xc_chat_view_set_scrollback_file (xccv2, "text2");
 	xc_chat_view_set_scrollback_file (xccv3, "text3");
 }
