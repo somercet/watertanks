@@ -66,6 +66,16 @@ create_menu_item (GMenu *menu,
 	g_object_unref (item);
 }
 
+
+GtkWidget *
+create_text_tab (gchar *lorem) {
+	GtkWidget *txt1 = gtk_text_view_new ();
+	GtkWidget *ssw = gtk_scrolled_window_new (NULL, NULL);
+	gtk_text_buffer_set_text (gtk_text_view_get_buffer (GTK_TEXT_VIEW (txt1)), lorem, -1);
+	gtk_container_add (GTK_CONTAINER (ssw), txt1);
+	return ssw;
+}
+
 /*
 state part 10
 static void cb_state (GSimpleAction *action,
@@ -536,11 +546,8 @@ example_activated (GtkApplication *app, gpointer user_data) {
 	XcChatView *xccv2 = xc_chat_view_new ();
 	create_tabs (xccv2, stack);
 
-	GtkWidget *txt1 = gtk_text_view_new ();
-	GtkWidget *ssw = gtk_scrolled_window_new (NULL, NULL);
-	gtk_text_buffer_set_text (gtk_text_view_get_buffer (GTK_TEXT_VIEW (txt1)), "Hello world!\n", -1);
-	gtk_container_add (GTK_CONTAINER (ssw), txt1);
-	create_gen_tab (ssw, stack, "foo1");
+	create_gen_tab (create_text_tab ("Hello, world!\n"), stack, "foo1");
+	create_gen_tab (create_text_tab ("Hello, new world!\n"), stack, "foo2");
 
 	XcChatView *xccv3 = xc_chat_view_new ();
 	create_tabs (xccv3, stack);
