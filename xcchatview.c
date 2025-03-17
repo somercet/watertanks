@@ -507,7 +507,8 @@ xc_chat_view_set_font (XcChatView *xccv, char *name)
 
 static void
 cb_mapped (GtkWidget *tview, gpointer user_data) {
-	XcChatView *xccv = user_data;
+	XcChatView *xccv = XC_CHAT_VIEW (user_data);
+	g_return_if_fail (xccv->atv);
 	XcChatViewClass *klass = XC_CHAT_VIEW_GET_CLASS (xccv);
 
 	if (klass->word_wrap)
