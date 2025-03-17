@@ -1,5 +1,5 @@
 
-# indent -linux -pcs -psl -brf -nfca -gts -nfc1 -gts
+#  xchat style: indent -l94 -ts3 -bli0 -i3 -ce
 #CFLAGS += -DGLIB_DISABLE_DEPRECATION_WARNINGS
 
 CFLAGS += -std=gnu99 -pipe -Werror -Wall -g $$( pkgconf --cflags gtk+-3.0 )

@@ -66,6 +66,16 @@ create_menu_item (GMenu *menu,
 	g_object_unref (item);
 }
 
+
+GtkWidget *
+create_text_tab (gchar *lorem) {
+	GtkWidget *txt1 = gtk_text_view_new ();
+	GtkWidget *ssw = gtk_scrolled_window_new (NULL, NULL);
+	gtk_text_buffer_set_text (gtk_text_view_get_buffer (GTK_TEXT_VIEW (txt1)), lorem, -1);
+	gtk_container_add (GTK_CONTAINER (ssw), txt1);
+	return ssw;
+}
+
 /*
 state part 10
 static void cb_state (GSimpleAction *action,
@@ -178,14 +188,13 @@ chpg (GtkStack *stack, gboolean up) {
 		sb_visible = gtk_search_bar_get_search_mode (searchbits[SI_BAR]);
 	GtkWidget *current = gtk_stack_get_visible_child (stack);
 
-//	if (sb_visible)
 	tabold = get_actives (stack);
 
 	for (GList *l = stakk; l != NULL; ) {
 		tab = l->data;
 		if (got)
 			break;
-		if ((tab->xccv && tab->xccv->atv) || (current == tab->gen)) {
+		if ((tab->xccv && tab->xccv->atv && ! tabold->gen) || current == tab->gen) {
 			got = TRUE;
 			if (up) {
 				l = l->prev;
@@ -234,6 +243,15 @@ create_tabs (XcChatView *xccv, GtkWidget *stack) {
 	stakk = g_list_prepend (stakk, newtab);
 
 	gtk_box_pack_start (searchbits[SI_LABEL], xccv->search_widget, FALSE, FALSE, 0);
+}
+
+
+static void
+create_gen_tab (GtkWidget *wid, GtkWidget *stack, gchar *name) {
+	struct tabbit *newtab = g_new0 (struct tabbit, 1);
+	newtab->gen = wid;
+	stakk = g_list_prepend (stakk, newtab);
+	gtk_stack_add_named (GTK_STACK (stack), wid, name);
 }
 
 
@@ -527,6 +545,10 @@ example_activated (GtkApplication *app, gpointer user_data) {
 
 	XcChatView *xccv2 = xc_chat_view_new ();
 	create_tabs (xccv2, stack);
+
+	create_gen_tab (create_text_tab ("Hello, world!\n"), stack, "foo1");
+	create_gen_tab (create_text_tab ("Hello, new world!\n"), stack, "foo2");
+
 	XcChatView *xccv3 = xc_chat_view_new ();
 	create_tabs (xccv3, stack);
 
