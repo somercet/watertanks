@@ -443,26 +443,61 @@ cb_wrap (GSimpleAction *simple, GVariant *parameter, gpointer stack) {
 	g_free (tab);
 }
 
+
 static void
-cb_clos (GSimpleAction *simple, GVariant *parameter, gpointer stack) {
-	struct tabbit *tab = NULL;
-	GtkWidget *current = gtk_stack_get_visible_child (stack);
-
-	if (tab->gen) {
-		return;
-	}
-
-	GList *l;
+close_xccv (GtkStack stack, struct tabbit *tabold) {
+	GList *l, target2;
 	for (l = stakk; l != NULL; l = l->next) {
 		tab = l->data;
-		if (current == tab->gen) { // TODO: fix this to phup/dn to adj xccv/stack
-			gtk_widget_destroy (tab->gen);
-			g_free (l->data);
-			stakk = g_list_delete_link (stakk, l);
-		}
+		if (tab->xccv && tabold->xccv == tab->xccv) {
+			target2 = l;
+			done = TRUE;
+		} else
+			moveto = tab;
+		if (moveto && target)
+			break;
 	}
-			xc_chat_view_detach (tab->xccv);
-			g_object_unref (tab->xccv);
+/*
+	if (moveto)
+		switch_tabs (stack, tabold, moveto);
+
+	target1 = target2->data;
+	if (target1->gen)
+		gtk_widget_destroy (tatget1->gen);
+	else if (target1->xccv) {
+		xc_chat_view_detach (tab->xccv);
+		g_object_unref (tab->xccv);
+	}
+
+		g_free (target2->data);
+		stakk = g_list_delete_link (stakk, target2);
+*/
+
+}
+
+
+static void
+cb_clos (GSimpleAction *simple, GVariant *parameter, gpointer stack) {
+	struct tabbit *tabold = NULL, *tab = NULL; //, *target1 = NULL, *moveto = NULL;
+	GtkWidget *current = gtk_stack_get_visible_child (stack);
+
+	tobold = get_actives (stack);
+
+	if (tabold->gen) {
+		GList *l; //, target2;
+		for (l = stakk; l != NULL; l = l->next) {
+			tab = l->data;
+			if (current == tab->gen) {
+				gtk_widget_destroy (tab->gen);
+				g_free (l->data);
+				stakk = g_list_delete_link (stakk, l);
+				return;
+			}
+		}
+	} else
+		close_xccv (stack, tabold);
+
+	g_free (tabold);
 }
 
 /* static void
