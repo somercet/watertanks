@@ -199,15 +199,13 @@ cell_func_dtime (	GtkTreeViewColumn	*tree_column,
 			GtkTreeIter	*iter,
 			gpointer	userdata)
 {
-  XcChatView *xccv = XC_CHAT_VIEW (userdata);
   GDateTime *dtime;
 
   gtk_tree_model_get (tree_model, iter, SFS_GDTIME, &dtime, -1);
 
-  if (dtime) {
-    XcChatViewClass *klass = XC_CHAT_VIEW_GET_CLASS (xccv);
-    g_object_set (cell, "text", g_date_time_format (dtime, klass->dtformat), NULL);
-  } else
+  if (dtime)
+    g_object_set (cell, "text", g_date_time_format (dtime, userdata), NULL);
+  else
     g_object_set (cell, "text", "", NULL);
 }
 
@@ -215,6 +213,7 @@ cell_func_dtime (	GtkTreeViewColumn	*tree_column,
 void
 xc_chat_view_tview_init (XcChatView *xccv, struct atview *atv)
 {
+  XcChatViewClass *klass = XC_CHAT_VIEW_GET_CLASS (xccv);
   g_return_if_fail (atv->select == NULL);
 
   atv->cell_td = gtk_cell_renderer_text_new ();
@@ -226,7 +225,7 @@ xc_chat_view_tview_init (XcChatView *xccv, struct atview *atv)
   gtk_tree_view_insert_column_with_attributes (atv->tview, TVC_MESSAGE, "Messages",
     atv->cell_ms, "text", SFS_MESSAG, NULL);
   gtk_tree_view_insert_column_with_data_func  (atv->tview, TVC_TIMED,   "Date",
-    atv->cell_td, cell_func_dtime, xccv, NULL);
+    atv->cell_td, cell_func_dtime, klass->dtformat, NULL);
 
   g_object_set (atv->cell_td, "font", "Monospace 9", NULL);
   g_object_set (atv->cell_ms, "wrap-mode", PANGO_WRAP_WORD_CHAR, NULL);
@@ -254,7 +253,6 @@ xc_chat_view_attach (XcChatView *xccv, struct atview *atv)
   xccv->scrolled_cb_id  = g_signal_connect (GTK_WIDGET (xccv->atv->tview), "scroll-event", G_CALLBACK (cb_scrolled), xccv);
   xccv->changed_cb_id   = g_signal_connect (xccv->atv->select, "changed", G_CALLBACK (cb_changed), xccv);
 
-  gtk_widget_freeze_child_notify (GTK_WIDGET (xccv->atv->tview));
   gtk_tree_view_set_model (xccv->atv->tview, GTK_TREE_MODEL (xccv->store));
   gtk_widget_thaw_child_notify (GTK_WIDGET (xccv->atv->tview));
 
@@ -281,13 +279,14 @@ xc_chat_view_detach (XcChatView *xccv)
   if (! xccv->isdown)
     xc_chat_view_get_top_row (xccv);
 
-  g_signal_handler_disconnect (xccv->atv->vadj,  xccv->valued_cb_id);
-  g_signal_handler_disconnect (xccv->atv->sw,    xccv->edged_cb_id);
+  g_signal_handler_disconnect (xccv->atv->vadj,   xccv->valued_cb_id);
+  g_signal_handler_disconnect (xccv->atv->sw,     xccv->edged_cb_id);
   g_signal_handler_disconnect (xccv->atv->select, xccv->changed_cb_id);
-  g_signal_handler_disconnect (xccv->atv->tview, xccv->scrolled_cb_id);
-  g_signal_handler_disconnect (xccv->atv->tview, xccv->tview_map_cb_id);
+  g_signal_handler_disconnect (xccv->atv->tview,  xccv->scrolled_cb_id);
+  g_signal_handler_disconnect (xccv->atv->tview,  xccv->tview_map_cb_id);
 
-//  gtk_tree_view_set_model (xccv->atv->tview, NULL);
+  gtk_widget_freeze_child_notify (GTK_WIDGET (xccv->atv->tview));
+  gtk_tree_view_set_model (xccv->atv->tview, NULL);
   xccv->atv = NULL;
 }
 
