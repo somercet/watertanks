@@ -143,8 +143,11 @@ example_destroy (GtkWidget *win, gpointer app) {
 	GList *l;
 	for (l = stakk; l != NULL; l = l->next) {
 		tab = l->data;
-		if (tab->xccv)
+		if (tab->xccv) {
+			if (tab->xccv->atv)
+				xc_chat_view_detach (tab->xccv);
 			g_object_unref (tab->xccv);
+		}
 		if (tab->gen)
 			gtk_widget_destroy (tab->gen);
 	}
@@ -443,45 +446,94 @@ cb_wrap (GSimpleAction *simple, GVariant *parameter, gpointer stack) {
 	g_free (tab);
 }
 
-
-static void
-close_xccv (GtkStack stack, struct tabbit *tabold) {
-	GList *l, target2;
-	for (l = stakk; l != NULL; l = l->next) {
-		tab = l->data;
-		if (tab->xccv && tabold->xccv == tab->xccv) {
-			target2 = l;
-			done = TRUE;
-		} else
-			moveto = tab;
-		if (moveto && target)
-			break;
-	}
 /*
-	if (moveto)
-		switch_tabs (stack, tabold, moveto);
-
-	target1 = target2->data;
-	if (target1->gen)
-		gtk_widget_destroy (tatget1->gen);
-	else if (target1->xccv) {
-		xc_chat_view_detach (tab->xccv);
-		g_object_unref (tab->xccv);
-	}
-
-		g_free (target2->data);
-		stakk = g_list_delete_link (stakk, target2);
+target to close (STAKK LINK)
+moveto to chpg to  (TABBIT)
+new_xccv for atv->tview (TABBIT))
 */
 
+static void
+close_xccv (GtkStack *stack, XcChatView *xccv) {
+	XcChatView *xccv2;
+	struct tabbit *tab = NULL, *moveto = NULL, *new_xccv = NULL;
+	GList *l, *target = NULL;
+
+	for (l = stakk; l && ! (target && moveto && new_xccv); l = l->next) {
+		tab = l->data;
+		if (tab->xccv == xccv) {
+			target = l;
+			continue;
+		}
+		if (!target || (target && !moveto))
+			moveto = tab;
+		if (tab->xccv && (!target || (target && !new_xccv)))
+			new_xccv = tab;
+	}
+
+	tab = target->data;
+
+	if (!new_xccv) {
+		if (moveto)
+			switch_tabs (stack, tab, moveto);
+		xccv2 = xc_chat_view_new ();
+		create_tabs (xccv2, GTK_WIDGET (stack));
+		xc_chat_view_detach (xccv);
+		xc_chat_view_attach (xccv2, &Atv);
+	} else {
+		if (moveto) {
+			switch_tabs (stack, tab, moveto);
+			if (moveto != new_xccv) {
+				xc_chat_view_detach (xccv);
+				xc_chat_view_attach (new_xccv->xccv, &Atv);
+			}
+		} else
+			switch_tabs (stack, tab, new_xccv);
+	}
+
+	g_object_unref (xccv);
+	g_free (tab);
+	stakk = g_list_delete_link (stakk, target);
 }
 
+/*
+!moveto && !new_xccv : only one X tab
+	xccv2
+	detach
+	attach xccv2
+	del target
+
+moveto && !new_xccv : no other X tabs
+	chpg moveto
+	xccv2
+	detach
+	attach accv2
+	del target
+
+moveto && new_xccv
+  ==	chpg moveto
+	del target
+
+  !=	chpg moveto
+	detach
+	attach new_xccv
+	del target
+
+!moveto && new_xccv : no gen tabs but pretty sure we never get here.
+	chpg new_xccv
+	del target
+
+del target:
+	g_object_unref (xccv);
+	g_free (tab);
+	stakk = g_list_delete_link (stakk, target);
+*/
 
 static void
 cb_clos (GSimpleAction *simple, GVariant *parameter, gpointer stack) {
 	struct tabbit *tabold = NULL, *tab = NULL; //, *target1 = NULL, *moveto = NULL;
 	GtkWidget *current = gtk_stack_get_visible_child (stack);
 
-	tobold = get_actives (stack);
+	tabold = get_actives (stack);
 
 	if (tabold->gen) {
 		GList *l; //, target2;
@@ -495,7 +547,7 @@ cb_clos (GSimpleAction *simple, GVariant *parameter, gpointer stack) {
 			}
 		}
 	} else
-		close_xccv (stack, tabold);
+		close_xccv (GTK_STACK (stack), tabold->xccv);
 
 	g_free (tabold);
 }
@@ -575,6 +627,7 @@ example_activated (GtkApplication *app, gpointer user_data) {
 	XcChatView *xccv1 = xc_chat_view_new ();
 	create_tabs (xccv1, stack);
 	xc_chat_view_tview_init (xccv1, &Atv);
+	gtk_widget_freeze_child_notify (GTK_WIDGET (Atv.tview));
 	xc_chat_view_attach (xccv1, &Atv);
 	xc_chat_view_set_handle_width (xccv1, TRUE, 15);
 
