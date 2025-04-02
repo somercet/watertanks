@@ -7,7 +7,7 @@ LDFLAGS += $$( pkgconf --libs gtk+-3.0 )
 
 all: example
 
-example: example.c xcchatview.c
+example: example.c xcchatview.c xc_cell_renderer_ircmsg.c
 	$(CC) $(CFLAGS) -o $@ $^	$(LDFLAGS)
 
 newmodel: newmodel.c xcchatview.c

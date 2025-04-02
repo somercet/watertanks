@@ -13,6 +13,9 @@
 #ifndef _xc_chat_view_h_
 #include "xcchatview.h"
 #endif
+#ifndef _xc_cell_renderer_ircmsg_h_
+#include "xc_cell_renderer_ircmsg.h"
+#endif
 
 enum {
 	XCCV_WORD_CLICK = 1,
@@ -218,12 +221,13 @@ xc_chat_view_tview_init (XcChatView *xccv, struct atview *atv)
 
   atv->cell_td = gtk_cell_renderer_text_new ();
   atv->cell_hn = gtk_cell_renderer_text_new ();
-  atv->cell_ms = gtk_cell_renderer_text_new ();
+//  atv->cell_ms = gtk_cell_renderer_text_new ();
+  atv->cell_ms = xc_cell_renderer_ircmsg_new ();
 
   gtk_tree_view_insert_column_with_attributes (atv->tview, TVC_HANDLE,  "Handle",
     atv->cell_hn, "text", SFS_HANDLE, NULL);
   gtk_tree_view_insert_column_with_attributes (atv->tview, TVC_MESSAGE, "Messages",
-    atv->cell_ms, "text", SFS_MESSAG, NULL);
+    atv->cell_ms, "irctext", SFS_MESSAG, NULL);
   gtk_tree_view_insert_column_with_data_func  (atv->tview, TVC_TIMED,   "Date",
     atv->cell_td, cell_func_dtime, klass->dtformat, NULL);
 
