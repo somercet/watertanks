@@ -51,7 +51,7 @@ static gboolean	cb_timeout (gpointer user_data);
 
 static void	xc_chat_view_get_top_row (XcChatView *xccv);
 
-G_DEFINE_TYPE(XcChatView, xc_chat_view, G_TYPE_OBJECT)
+G_DEFINE_TYPE (XcChatView, xc_chat_view, G_TYPE_OBJECT);
 
 
 // maingui.c	1. add a tabbed channel 2. create topwindow
@@ -216,20 +216,19 @@ cell_func_dtime (	GtkTreeViewColumn	*tree_column,
 void
 xc_chat_view_tview_init (XcChatView *xccv, struct atview *atv)
 {
+  g_return_if_fail (xccv != NULL && atv->select == NULL); // double init check
   XcChatViewClass *klass = XC_CHAT_VIEW_GET_CLASS (xccv);
-  g_return_if_fail (atv->select == NULL);
 
   atv->cell_td = gtk_cell_renderer_text_new ();
   atv->cell_hn = gtk_cell_renderer_text_new ();
-//  atv->cell_ms = gtk_cell_renderer_text_new ();
   atv->cell_ms = xc_cell_renderer_ircmsg_new ();
 
-  gtk_tree_view_insert_column_with_attributes (atv->tview, TVC_HANDLE,  "Handle",
+  gtk_tree_view_insert_column_with_data_func (atv->tview, TVC_TIMED, "Date",
+    atv->cell_td, cell_func_dtime, klass->dtformat, NULL);
+  gtk_tree_view_insert_column_with_attributes (atv->tview, TVC_HANDLE, "Handle",
     atv->cell_hn, "text", SFS_HANDLE, NULL);
   gtk_tree_view_insert_column_with_attributes (atv->tview, TVC_MESSAGE, "Messages",
     atv->cell_ms, "irctext", SFS_MESSAG, NULL);
-  gtk_tree_view_insert_column_with_data_func  (atv->tview, TVC_TIMED,   "Date",
-    atv->cell_td, cell_func_dtime, klass->dtformat, NULL);
 
   g_object_set (atv->cell_td, "font", "Monospace 9", NULL);
   g_object_set (atv->cell_ms, "wrap-mode", PANGO_WRAP_WORD_CHAR, NULL);
